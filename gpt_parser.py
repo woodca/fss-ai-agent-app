@@ -20,7 +20,12 @@ class GPTParser:
         if not self.api_key:
             raise ValueError("Anthropic API key is required. Set ANTHROPIC_API_KEY environment variable or pass api_key parameter.")
         
-        self.client = anthropic.Anthropic(api_key=self.api_key)
+        # Initialize Anthropic client without any extra parameters
+        try:
+            self.client = anthropic.Anthropic(api_key=self.api_key)
+        except TypeError:
+            # Fallback for older versions
+            self.client = anthropic.Client(api_key=self.api_key)
         self.appointments_file = 'appointments.json'
         self.contacts_file = 'contacts.json'
         self.personnel_file = 'personnel.json'
