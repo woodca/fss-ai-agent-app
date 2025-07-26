@@ -3,6 +3,7 @@ import json
 import os
 from datetime import datetime
 from dotenv import load_dotenv
+from anthropic_direct import AnthropicDirect
 
 # Load .env file only if it exists (for local development)
 if os.path.exists('.env'):
@@ -26,8 +27,9 @@ class GPTParser:
         if not self.api_key:
             raise ValueError("Anthropic API key is required. Set ANTHROPIC_API_KEY environment variable or pass api_key parameter.")
         
-        # Initialize Anthropic client
-        self.client = anthropic.Anthropic(api_key=self.api_key)
+        # Use direct API instead of SDK to avoid proxy issues
+        print("Using direct Anthropic API to bypass proxy issues")
+        self.client = AnthropicDirect(self.api_key)
         self.appointments_file = 'appointments.json'
         self.contacts_file = 'contacts.json'
         self.personnel_file = 'personnel.json'
@@ -103,7 +105,7 @@ class GPTParser:
             full_prompt = self.prompt_template + f"\n\nCURRENT DATE: {current_date} ({current_date_iso})\nPhone: {phone_number}\nMessage: {message_text}"
             
             # Call Claude API
-            response = self.client.messages.create(
+            response = self.client.create_message(
                 model="claude-3-haiku-20240307",
                 max_tokens=500,
                 temperature=0.3,
@@ -436,7 +438,7 @@ class GPTParser:
             """
             
             # Call Claude API
-            response = self.client.messages.create(
+            response = self.client.create_message(
                 model="claude-3-haiku-20240307",
                 max_tokens=400,
                 temperature=0.2,

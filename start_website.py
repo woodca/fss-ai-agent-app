@@ -375,7 +375,7 @@ def process_general_query(message_text, parser):
         """
         
         # Call Claude API
-        response = parser.client.messages.create(
+        response = parser.client.create_message(
             model="claude-3-haiku-20240307",
             max_tokens=300,
             temperature=0.3,
