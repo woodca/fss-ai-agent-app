@@ -577,10 +577,12 @@ class SectionLeadsDashboard {
         const rufusMinimize = document.getElementById('rufusMinimize');
         
         // Toggle chat window
-        if (rufusToggle) {
+        if (rufusToggle && rufusChatWindow) {
             rufusToggle.addEventListener('click', () => {
-                const isVisible = rufusChatWindow.style.display === 'block';
-                rufusChatWindow.style.display = isVisible ? 'none' : 'block';
+                const isVisible = rufusChatWindow.style.display === 'flex';
+                rufusChatWindow.style.display = isVisible ? 'none' : 'flex';
+                // Hide/show toggle button
+                rufusToggle.style.display = isVisible ? 'flex' : 'none';
                 
                 // Focus on input when chat opens
                 if (!isVisible) {
@@ -595,9 +597,13 @@ class SectionLeadsDashboard {
         }
         
         // Minimize chat window
-        if (rufusMinimize) {
+        if (rufusMinimize && rufusChatWindow) {
             rufusMinimize.addEventListener('click', () => {
                 rufusChatWindow.style.display = 'none';
+                // Show toggle button again
+                if (rufusToggle) {
+                    rufusToggle.style.display = 'flex';
+                }
             });
         }
     }
@@ -820,21 +826,27 @@ function initializeFloatingButtons() {
     
     // Initialize Floating Chat
     const rufusToggle = document.getElementById('rufusToggle');
-    const rufusChatInterface = document.getElementById('rufusChatInterface');
+    const rufusChatWindow = document.getElementById('rufusChatWindow');
     const rufusMinimize = document.getElementById('rufusMinimize');
     const rufusSend = document.getElementById('rufusSend');
     const rufusInput = document.getElementById('rufusInput');
     
-    if (rufusToggle && rufusChatInterface) {
+    if (rufusToggle && rufusChatWindow) {
         rufusToggle.addEventListener('click', () => {
-            const isVisible = rufusChatInterface.style.display === 'block';
-            rufusChatInterface.style.display = isVisible ? 'none' : 'block';
+            const isVisible = rufusChatWindow.style.display === 'flex';
+            rufusChatWindow.style.display = isVisible ? 'none' : 'flex';
+            // Hide the toggle button when chat is open
+            rufusToggle.style.display = isVisible ? 'flex' : 'none';
         });
     }
     
-    if (rufusMinimize && rufusChatInterface) {
+    if (rufusMinimize && rufusChatWindow) {
         rufusMinimize.addEventListener('click', () => {
-            rufusChatInterface.style.display = 'none';
+            rufusChatWindow.style.display = 'none';
+            // Show the toggle button again
+            if (rufusToggle) {
+                rufusToggle.style.display = 'flex';
+            }
         });
     }
     
@@ -980,5 +992,9 @@ function formatStatus(status) {
 
 // Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    sectionLeadsDashboard = new SectionLeadsDashboard();
+    // Only initialize the full dashboard on the section leads page
+    // Other pages will just use the floating button functions
+    if (window.location.pathname === '/section-leads') {
+        sectionLeadsDashboard = new SectionLeadsDashboard();
+    }
 });

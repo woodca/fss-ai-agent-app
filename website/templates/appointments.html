@@ -148,41 +148,49 @@
             <div class="rufus-icon">
                 <i class="fas fa-robot"></i>
             </div>
-            <span class="rufus-label">FSS AI Agent</span>
+            <span class="rufus-label">AI Agent</span>
         </div>
         
-        <!-- Chat Interface -->
-        <div class="rufus-chat-interface" id="rufusChatInterface">
+        <!-- Chat Window -->
+        <div class="rufus-chat-window" id="rufusChatWindow" style="display: none;">
             <div class="rufus-header">
                 <div class="rufus-title">
                     <i class="fas fa-robot"></i>
                     <span>FSS AI Agent</span>
                 </div>
-                <button class="rufus-minimize" id="rufusMinimize">
-                    <i class="fas fa-minus"></i>
-                </button>
-            </div>
-            
-            <div class="rufus-messages" id="rufusMessages">
-                <div class="rufus-message">
-                    <div class="rufus-message-content"><strong>FSS AI Agent</strong> ready to help!
-
-• Update personnel: "A1C Davis to admin room"
-• Ask questions about staffing</div>
+                <div class="rufus-controls">
+                    <button class="rufus-minimize" id="rufusMinimize">
+                        <i class="fas fa-minus"></i>
+                    </button>
                 </div>
             </div>
             
-            <!-- Message Input -->
-            <div class="rufus-input-area">
-                <div class="rufus-input-wrapper">
-                    <input type="text" 
-                           id="rufusInput" 
-                           class="rufus-input" 
-                           placeholder="Ask me anything about section operations..."
-                           maxlength="500">
-                    <button class="rufus-send" id="rufusSend">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
+            <div class="rufus-body">
+                <!-- Message History -->
+                <div class="rufus-messages" id="rufusMessages">
+                    <div class="rufus-welcome">
+                        <div class="rufus-agent-bubble">
+                            <div class="rufus-avatar">🤖</div>
+                            <div class="rufus-message-content"><strong>FSS AI Agent</strong> ready to help!
+
+• Update personnel: "A1C Davis to admin room"
+• Ask questions about staffing</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Message Input -->
+                <div class="rufus-input-area">
+                    <div class="rufus-input-wrapper">
+                        <input type="text" 
+                               id="rufusInput" 
+                               class="rufus-input" 
+                               placeholder="Ask me anything about section operations..."
+                               maxlength="500">
+                        <button class="rufus-send" id="rufusSend">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
