@@ -4,11 +4,19 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env file only if it exists (for local development)
+if os.path.exists('.env'):
+    load_dotenv()
 
 class GPTParser:
     def __init__(self, api_key=None):
-        self.api_key = api_key or os.getenv('ANTHROPIC_API_KEY')
+        # Try to get API key from multiple sources
+        self.api_key = api_key or os.environ.get('ANTHROPIC_API_KEY') or os.getenv('ANTHROPIC_API_KEY')
+        
+        # Debug logging for production
+        print(f"API Key loaded: {'Yes' if self.api_key else 'No'}")
+        print(f"API Key length: {len(self.api_key) if self.api_key else 0}")
+        
         if not self.api_key:
             raise ValueError("Anthropic API key is required. Set ANTHROPIC_API_KEY environment variable or pass api_key parameter.")
         
