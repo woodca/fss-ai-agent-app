@@ -8,6 +8,12 @@ from dotenv import load_dotenv
 if os.path.exists('.env'):
     load_dotenv()
 
+# Clear any proxy settings that might interfere with Anthropic
+os.environ.pop('HTTP_PROXY', None)
+os.environ.pop('HTTPS_PROXY', None)
+os.environ.pop('http_proxy', None)
+os.environ.pop('https_proxy', None)
+
 class GPTParser:
     def __init__(self, api_key=None):
         # Try to get API key from multiple sources
@@ -20,12 +26,8 @@ class GPTParser:
         if not self.api_key:
             raise ValueError("Anthropic API key is required. Set ANTHROPIC_API_KEY environment variable or pass api_key parameter.")
         
-        # Initialize Anthropic client without any extra parameters
-        try:
-            self.client = anthropic.Anthropic(api_key=self.api_key)
-        except TypeError:
-            # Fallback for older versions
-            self.client = anthropic.Client(api_key=self.api_key)
+        # Initialize Anthropic client
+        self.client = anthropic.Anthropic(api_key=self.api_key)
         self.appointments_file = 'appointments.json'
         self.contacts_file = 'contacts.json'
         self.personnel_file = 'personnel.json'
