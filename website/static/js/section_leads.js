@@ -871,41 +871,66 @@ function showPersonnelRoster() {
     
     if (!modal || !modalBody) return;
     
+    // Check if already open, if so close it
+    if (modal.style.display === 'flex') {
+        modal.style.display = 'none';
+        return;
+    }
+    
+    // Clear existing content and show loading
+    modalBody.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">Loading personnel...</p>';
+    modal.style.display = 'flex';
+    
     // Fetch and display personnel data
     fetch('/api/personnel')
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                modalBody.innerHTML = '';
-                
-                data.personnel.forEach(person => {
-                    const personCard = document.createElement('div');
-                    personCard.className = 'person-card';
-                    
-                    const statusClass = person.status === 'working' ? 'status-working' : 
-                                       person.status === 'on_leave' ? 'status-leave' : 'status-out';
-                    
-                    personCard.innerHTML = `
-                        <div class="person-info">
-                            <div class="person-name-rank">
-                                <span class="person-name">${person.name}</span>
-                                <span class="person-rank">${person.rank}</span>
-                            </div>
-                            <div class="person-details">
-                                <span class="person-assignment">${formatAssignment(person.assignment)}</span>
-                                <span class="person-status ${statusClass}">${formatStatus(person.status)}</span>
-                            </div>
-                        </div>
-                    `;
-                    
-                    modalBody.appendChild(personCard);
-                });
-                
-                modal.style.display = 'flex';
+            if (!data.success) {
+                modalBody.innerHTML = '<p style="text-align: center; color: var(--error-red);">Failed to load personnel data.</p>';
+                return;
+            }
+            
+            // Clear loading message
+            modalBody.innerHTML = '';
+            
+            // Organize personnel by categories
+            const sectionLeads = [];
+            const otherPersonnel = [];
+            
+            data.personnel.forEach(person => {
+                if (person.assignment === 'section_leads') {
+                    sectionLeads.push(person);
+                } else {
+                    otherPersonnel.push(person);
+                }
+            });
+            
+            // Sort by rank (rough approximation)
+            const rankOrder = ['TSgt', 'SSgt', 'SrA', 'A1C', 'Amn', 'AB', 'GS-', 'Mrs.', 'Mr.'];
+            const sortByRank = (a, b) => {
+                const aRankIndex = rankOrder.findIndex(rank => a.name.includes(rank));
+                const bRankIndex = rankOrder.findIndex(rank => b.name.includes(rank));
+                return aRankIndex - bRankIndex;
+            };
+            
+            sectionLeads.sort(sortByRank);
+            otherPersonnel.sort(sortByRank);
+        
+            // Create section leads section
+            if (sectionLeads.length > 0) {
+                const sectionLeadsDiv = createPersonnelSection('Section Leaders', sectionLeads, 'fas fa-star');
+                modalBody.appendChild(sectionLeadsDiv);
+            }
+            
+            // Create other personnel section
+            if (otherPersonnel.length > 0) {
+                const otherPersonnelDiv = createPersonnelSection('Section Personnel', otherPersonnel, 'fas fa-users');
+                modalBody.appendChild(otherPersonnelDiv);
             }
         })
         .catch(error => {
-            console.error('Failed to load personnel:', error);
+            console.error('Failed to load personnel roster:', error);
+            modalBody.innerHTML = '<p style="text-align: center; color: var(--error-red);">Failed to load personnel data.</p>';
         });
 }
 
@@ -988,6 +1013,58 @@ function formatStatus(status) {
         'unknown': 'Unknown'
     };
     return statuses[status] || status;
+}
+
+// Helper function to create personnel sections
+function createPersonnelSection(title, personnel, iconClass) {
+    const sectionDiv = document.createElement('div');
+    sectionDiv.className = 'personnel-section';
+    
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'personnel-section-title';
+    titleDiv.innerHTML = `<i class="${iconClass}"></i>${title} (${personnel.length})`;
+    
+    const listDiv = document.createElement('div');
+    listDiv.className = 'personnel-list';
+    
+    personnel.forEach(person => {
+        const personElement = createPersonnelItem(person);
+        listDiv.appendChild(personElement);
+    });
+    
+    sectionDiv.appendChild(titleDiv);
+    sectionDiv.appendChild(listDiv);
+    
+    return sectionDiv;
+}
+
+// Helper function to create personnel items
+function createPersonnelItem(person) {
+    const item = document.createElement('div');
+    item.className = `personnel-item ${person.status}`;
+    
+    // Get initials for avatar
+    const nameParts = person.name.split(' ');
+    const initials = nameParts.map(part => part[0]).join('').slice(0, 2);
+    
+    // Format assignment name
+    const assignmentName = formatAssignment(person.assignment);
+    
+    // Format status name
+    const statusName = formatStatus(person.status);
+    
+    item.innerHTML = `
+        <div class="personnel-avatar">${initials}</div>
+        <div class="personnel-info">
+            <div class="personnel-name">${person.name}</div>
+            <div class="personnel-details">
+                <span>${assignmentName}</span>
+                <span class="personnel-status ${person.status}">${statusName}</span>
+            </div>
+        </div>
+    `;
+    
+    return item;
 }
 
 // Initialize the application when DOM is loaded

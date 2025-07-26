@@ -559,8 +559,5 @@ let sectionCalendar;
 document.addEventListener('DOMContentLoaded', () => {
     sectionCalendar = new SectionCalendar();
     
-    // Initialize floating buttons if they exist (from section_leads.js)
-    if (typeof initializeFloatingButtons === 'function') {
-        initializeFloatingButtons();
-    }
+    // Floating buttons are handled by section_leads.js
 });
