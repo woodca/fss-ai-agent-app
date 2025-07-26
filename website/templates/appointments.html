@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Section Calendar - FSS AI Agent</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-robot"></i>
+                <span>FSS AI Agent</span>
+            </div>
+            <div class="nav-actions">
+                <a href="/section-leads" class="nav-link">
+                    <i class="fas fa-arrow-left"></i>
+                    Section Leads
+                </a>
+                <a href="/" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    Home
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Appointments Header -->
+    <section class="section-leads-header">
+        <div class="leads-header-container">
+            <div class="leads-header-content">
+                <h1 class="leads-title">Section Calendar</h1>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section Calendar Dashboard -->
+    <section class="calendar-dashboard">
+        <div class="dashboard-container">
+            <!-- Calendar Header -->
+            <div class="calendar-header">
+                <div class="calendar-navigation">
+                    <button id="prevButton" class="nav-btn">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <div class="current-date">
+                        <h2 id="currentDateDisplay">Loading...</h2>
+                        <button id="todayButton" class="today-btn">Today</button>
+                    </div>
+                    <button id="nextButton" class="nav-btn">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+                
+                <div class="view-controls">
+                    <div class="view-toggle">
+                        <button id="dailyViewBtn" class="toggle-btn active">
+                            <i class="fas fa-calendar-day"></i>
+                            Daily
+                        </button>
+                        <button id="weeklyViewBtn" class="toggle-btn">
+                            <i class="fas fa-calendar-week"></i>
+                            Weekly
+                        </button>
+                        <button id="monthlyViewBtn" class="toggle-btn">
+                            <i class="fas fa-calendar"></i>
+                            Monthly
+                        </button>
+                    </div>
+                    
+                    <button id="refreshCalendarButton" class="refresh-btn">
+                        <i class="fas fa-sync-alt"></i>
+                        Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Daily View (Default) -->
+            <div id="dailyView" class="calendar-view">
+                <div class="daily-header">
+                    <div class="daily-date-info">
+                        <h3 id="dailyDateTitle">Today's Schedule</h3>
+                        <p id="dailyDateSubtitle">Loading...</p>
+                    </div>
+                    <div class="daily-stats">
+                        <div class="stat-item">
+                            <span class="stat-number" id="dailyEventCount">0</span>
+                            <span class="stat-label">Events</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="dailyPersonnelCount">0</span>
+                            <span class="stat-label">Personnel</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="dailyEventsContainer" class="daily-events">
+                    <!-- Daily events will be populated here -->
+                </div>
+            </div>
+
+            <!-- Weekly View -->
+            <div id="weeklyView" class="calendar-view hidden">
+                <div class="weekly-header">
+                    <div class="week-days"></div>
+                </div>
+                <div id="weeklyGrid" class="weekly-grid">
+                    <!-- Weekly grid will be populated here -->
+                </div>
+            </div>
+
+            <!-- Monthly View -->
+            <div id="monthlyView" class="calendar-view hidden">
+                <div class="monthly-header">
+                    <div class="month-days">
+                        <div class="day-header">Sun</div>
+                        <div class="day-header">Mon</div>
+                        <div class="day-header">Tue</div>
+                        <div class="day-header">Wed</div>
+                        <div class="day-header">Thu</div>
+                        <div class="day-header">Fri</div>
+                        <div class="day-header">Sat</div>
+                    </div>
+                </div>
+                <div id="monthlyGrid" class="monthly-grid">
+                    <!-- Monthly grid will be populated here -->
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Floating Personnel Roster Button -->
+    <div class="personnel-roster-container" id="personnelRosterContainer">
+        <div class="personnel-roster-toggle" id="personnelRosterToggle">
+            <div class="roster-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <span class="roster-label">All Personnel</span>
+        </div>
+    </div>
+
+    <!-- Floating AI Chat Interface (Rufus Style) -->
+    <div class="rufus-chat-container" id="rufusChatContainer">
+        <!-- Chat Toggle Button -->
+        <div class="rufus-toggle" id="rufusToggle">
+            <div class="rufus-icon">
+                <i class="fas fa-robot"></i>
+            </div>
+            <span class="rufus-label">FSS AI Agent</span>
+        </div>
+        
+        <!-- Chat Interface -->
+        <div class="rufus-chat-interface" id="rufusChatInterface">
+            <div class="rufus-header">
+                <div class="rufus-title">
+                    <i class="fas fa-robot"></i>
+                    <span>FSS AI Agent</span>
+                </div>
+                <button class="rufus-minimize" id="rufusMinimize">
+                    <i class="fas fa-minus"></i>
+                </button>
+            </div>
+            
+            <div class="rufus-messages" id="rufusMessages">
+                <div class="rufus-message">
+                    <div class="rufus-message-content"><strong>FSS AI Agent</strong> ready to help!
+
+• Update personnel: "A1C Davis to admin room"
+• Ask questions about staffing</div>
+                </div>
+            </div>
+            
+            <!-- Message Input -->
+            <div class="rufus-input-area">
+                <div class="rufus-input-wrapper">
+                    <input type="text" 
+                           id="rufusInput" 
+                           class="rufus-input" 
+                           placeholder="Ask me anything about section operations..."
+                           maxlength="500">
+                    <button class="rufus-send" id="rufusSend">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Personnel Roster Modal -->
+    <div class="modal-overlay" id="personnelRosterModal" style="display: none;">
+        <div class="modal-content roster-modal">
+            <div class="modal-header">
+                <h2 class="modal-title">
+                    <i class="fas fa-users"></i>
+                    CS Section Personnel Roster
+                </h2>
+                <button class="modal-close" id="closeRosterModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="personnelRosterList">
+                <!-- Personnel roster will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Loading calendar events...</span>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/appointments.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/section_leads.js') }}"></script>
+</body>
+</html>

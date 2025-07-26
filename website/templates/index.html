@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FSS AI Agent</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-robot"></i>
+                <span>FSS AI Agent</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-container">
+            <div class="hero-content">
+                <h1 class="hero-title">FSS AI Agent</h1>
+                <p class="hero-subtitle">Intelligent appointment tracking for Air Force customer service operations</p>
+                
+                <!-- Main Action Buttons -->
+                <div class="action-section">
+                    <button class="start-button" id="startButton">
+                        <i class="fas fa-calendar-check"></i>
+                        <span>View Appointments</span>
+                    </button>
+                    <button class="start-button secondary" id="sectionLeadsButton">
+                        <i class="fas fa-users-crown"></i>
+                        <span>Section Leads</span>
+                    </button>
+                </div>
+                
+                <!-- Quick Stats -->
+                <div class="stats-container" id="statsContainer">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalAppointments">-</div>
+                        <div class="stat-label">Active Appointments</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="availablePersonnel">-</div>
+                        <div class="stat-label">Available</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="availabilityPercent">-</div>
+                        <div class="stat-label">Availability</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Appointments Section (Initially Hidden) -->
+    <section class="appointments-section" id="appointmentsSection" style="display: none;">
+        <div class="appointments-container">
+            <div class="section-header">
+                <h2>Active Appointments</h2>
+                <button class="refresh-button" id="refreshButton">
+                    <i class="fas fa-sync-alt"></i>
+                    Refresh
+                </button>
+            </div>
+            
+            <div class="appointments-grid" id="appointmentsGrid">
+                <!-- Appointments will be loaded here -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <p>Loading appointment data...</p>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

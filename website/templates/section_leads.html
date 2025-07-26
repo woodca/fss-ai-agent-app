@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Section Leads - FSS AI Agent</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-robot"></i>
+                <span>FSS AI Agent</span>
+            </div>
+            <div class="nav-actions">
+                <a href="/" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    Home
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Section Leads Header -->
+    <section class="section-leads-header">
+        <div class="leads-header-container">
+            <div class="leads-header-content">
+                <h1 class="leads-title">CS Section Leads</h1>
+            </div>
+        </div>
+    </section>
+
+    <!-- Staffing Status Dashboard -->
+    <section class="staffing-dashboard">
+        <div class="dashboard-container">
+            <h2 class="dashboard-title">Current Staffing Status</h2>
+            
+            <!-- Overall Stats -->
+            <div class="stats-grid">
+                <div class="stat-card available">
+                    <div class="stat-number" id="availablePersonnel">-</div>
+                    <div class="stat-label">Working</div>
+                </div>
+                <div class="stat-card unavailable clickable" id="unavailableCard">
+                    <div class="stat-number" id="unavailablePersonnel">-</div>
+                    <div class="stat-label">Out of Office</div>
+                    <div class="stat-action">
+                        <i class="fas fa-info-circle"></i>
+                        <span>View Details</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Assignment Breakdown -->
+            <div class="assignment-grid">
+                <div class="assignment-card floor">
+                    <div class="assignment-header">
+                        <i class="fas fa-users"></i>
+                        <span>Floor</span>
+                    </div>
+                    <div class="assignment-count" id="floorCount">-</div>
+                    <div class="assignment-personnel" id="floorPersonnel"></div>
+                </div>
+                
+                <div class="assignment-card admin">
+                    <div class="assignment-header">
+                        <i class="fas fa-file-alt"></i>
+                        <span>Admin Room</span>
+                    </div>
+                    <div class="assignment-count" id="adminCount">-</div>
+                    <div class="assignment-personnel" id="adminPersonnel"></div>
+                </div>
+                
+                <div class="assignment-card terminal">
+                    <div class="assignment-header">
+                        <i class="fas fa-desktop"></i>
+                        <span>Terminals</span>
+                    </div>
+                    <div class="assignment-count" id="terminalCount">-</div>
+                    <div class="assignment-personnel" id="terminalPersonnel"></div>
+                </div>
+                
+            </div>
+        </div>
+    </section>
+
+    <!-- Navigation Actions -->
+    <section class="navigation-actions">
+        <div class="actions-container">
+            <a href="/calendar" class="action-button calendar-btn">
+                <i class="fas fa-calendar-alt"></i>
+                <div class="action-content">
+                    <span class="action-title">Section Calendar</span>
+                    <small class="action-description">View appointments, training, meetings, PT, and upcoming events</small>
+                </div>
+            </a>
+        </div>
+    </section>
+
+    <!-- Floating Personnel Roster Button -->
+    <div class="personnel-roster-container" id="personnelRosterContainer">
+        <div class="personnel-roster-toggle" id="personnelRosterToggle">
+            <div class="roster-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <span class="roster-label">All Personnel</span>
+        </div>
+    </div>
+
+    <!-- Floating AI Chat Interface (Rufus Style) -->
+    <div class="rufus-chat-container" id="rufusChatContainer">
+        <!-- Chat Toggle Button -->
+        <div class="rufus-toggle" id="rufusToggle">
+            <div class="rufus-icon">
+                <i class="fas fa-robot"></i>
+            </div>
+            <span class="rufus-label">AI Agent</span>
+        </div>
+        
+        <!-- Chat Window -->
+        <div class="rufus-chat-window" id="rufusChatWindow" style="display: none;">
+            <div class="rufus-header">
+                <div class="rufus-title">
+                    <i class="fas fa-robot"></i>
+                    <span>FSS AI Agent</span>
+                </div>
+                <div class="rufus-controls">
+                    <button class="rufus-minimize" id="rufusMinimize">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="rufus-body">
+                <!-- Message History -->
+                <div class="rufus-messages" id="rufusMessages">
+                    <div class="rufus-welcome">
+                        <div class="rufus-agent-bubble">
+                            <div class="rufus-avatar">🤖</div>
+                            <div class="rufus-message-content"><strong>FSS AI Agent</strong> ready to help!
+
+• Update personnel: "A1C Davis to admin room"
+• Ask questions about staffing</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Message Input -->
+                <div class="rufus-input-area">
+                    <div class="rufus-input-wrapper">
+                        <input type="text" 
+                               id="rufusInput" 
+                               class="rufus-input" 
+                               placeholder="Ask me anything about section operations..."
+                               maxlength="500">
+                        <button class="rufus-send" id="rufusSend">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <p>Loading section leads...</p>
+    </div>
+
+    <!-- Personnel Roster Modal -->
+    <div class="modal-overlay" id="personnelRosterModal" style="display: none;">
+        <div class="modal-content roster-modal">
+            <div class="modal-header">
+                <h2 class="modal-title">
+                    <i class="fas fa-users"></i>
+                    CS Section Personnel Roster
+                </h2>
+                <button class="modal-close" id="closeRosterModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="personnelRosterList">
+                <!-- Personnel roster will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Unavailable Personnel Modal -->
+    <div class="modal-overlay" id="unavailableModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">
+                    <i class="fas fa-user-times"></i>
+                    Out of Office Personnel
+                </h2>
+                <button class="modal-close" id="closeModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="unavailableList">
+                <!-- Unavailable personnel will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/section_leads.js') }}"></script>
+</body>
+</html>
