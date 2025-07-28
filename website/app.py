@@ -12,8 +12,40 @@ sys.path.append(parent_dir)
 os.chdir(parent_dir)
 
 from gpt_parser import GPTParser
+from vera_agent import VeraAgent
+from flask import request
+import json
+from datetime import datetime
 
 app = Flask(__name__)
+
+# Store conversation context with persistence
+conversation_contexts = {}
+CONVERSATION_FILE = 'conversation_contexts.json'
+
+def load_conversation_contexts():
+    """Load conversation contexts from file"""
+    global conversation_contexts
+    try:
+        if os.path.exists(CONVERSATION_FILE):
+            with open(CONVERSATION_FILE, 'r') as f:
+                conversation_contexts = json.load(f)
+        else:
+            conversation_contexts = {}
+    except Exception as e:
+        print(f"Error loading conversation contexts: {e}")
+        conversation_contexts = {}
+
+def save_conversation_contexts():
+    """Save conversation contexts to file"""
+    try:
+        with open(CONVERSATION_FILE, 'w') as f:
+            json.dump(conversation_contexts, f, indent=2)
+    except Exception as e:
+        print(f"Error saving conversation contexts: {e}")
+
+# Load existing conversation contexts on startup
+load_conversation_contexts()
 
 @app.route('/')
 def home():
@@ -105,7 +137,68 @@ def api_contacts():
             'error': str(e)
         }), 500
 
+@app.route('/api/ai-agent/message', methods=['POST'])
+def ai_agent_message():
+    """API endpoint for Vera chat interface - Now with full Claude intelligence!"""
+    try:
+        data = request.get_json()
+        message = data.get('message', '').strip()
+        sender_id = data.get('sender_id', 'web_user')
+        
+        if not message:
+            return jsonify({
+                'success': False,
+                'error': 'Message is required'
+            }), 400
+        
+        # Initialize Vera Agent
+        vera = VeraAgent()
+        
+        # Get conversation context
+        if sender_id not in conversation_contexts:
+            conversation_contexts[sender_id] = []
+        
+        context = conversation_contexts[sender_id]
+        
+        # Chat with Vera (full Claude intelligence!)
+        response_message = vera.chat(message, context)
+        
+        # Store context
+        context.append({
+            'role': 'user',
+            'content': message,
+            'timestamp': datetime.now().isoformat()
+        })
+        context.append({
+            'role': 'assistant',
+            'content': response_message,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+        # Keep only last 10 exchanges (20 messages)
+        if len(context) > 20:
+            context = context[-20:]
+        conversation_contexts[sender_id] = context
+        
+        # Save conversation contexts to file
+        save_conversation_contexts()
+        
+        return jsonify({
+            'success': True,
+            'ai_response': response_message,
+            'response': response_message,
+            'message_type': 'chat_response'
+        })
+        
+    except Exception as e:
+        print(f"Error in ai_agent_message: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'ai_response': 'Sorry, I encountered an error. Please try again.'
+        }), 500
+
 if __name__ == '__main__':
-    print("Starting FSS AI Agent Web Server...")
+    print("Starting Vera Web Server...")
     print("Visit: http://localhost:5000")
     app.run(debug=True, host='0.0.0.0', port=5000)

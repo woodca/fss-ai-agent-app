@@ -106,7 +106,7 @@ class GPTParser:
             
             # Call Claude API
             response = self.client.create_message(
-                model="claude-3-haiku-20240307",
+                model="claude-3-5-sonnet-20241022",
                 max_tokens=500,
                 temperature=0.3,
                 system="You are an AI assistant for military customer service. Respond only in valid JSON format.",
@@ -360,22 +360,27 @@ class GPTParser:
             status_prompt = f"""
             You are an AI assistant for an Air Force customer service section. Analyze this text message to determine if it's a personnel status update command.
 
-            Valid personnel assignments: terminal, admin_room, floor, section_leads
-            Valid personnel statuses: available, working, on_appointment, on_leave
+            Valid personnel statuses: front_desk, admin_room, terminal, float, leave, appointment
             Valid appointment types: medical, dental, personal_business, leave, other
             
             IMPORTANT STATUS INTERPRETATION RULES:
-            - When someone is "on [location]" or "at [location]" or "working [location]" → status should be "working"
-            - When someone is "back" and assigned to a location → status should be "working"
-            - When someone is "moved to [location]" or "assigned to [location]" → status should be "working"
-            - When someone is explicitly "available" → status should be "available"
-            - When someone is "on leave" or "out" → status should be "on_leave"
-            - When someone is "at appointment" or "has appointment" → status should be "on_appointment"
+            - When someone is "on front desk" or "on floor" → status should be "front_desk"
+            - When someone is "on terminals" or "at terminals" → status should be "terminal" 
+            - When someone is "in admin room" or "to admin room" → status should be "admin_room"
+            - When someone is "float" or "floating" → status should be "float"
+            - When someone is "on leave" or "out" → status should be "leave"
+            - When someone is "at appointment" or "has appointment" → status should be "appointment"
             
             NEW PERSONNEL ADDITION RULES:
             - Commands like "We got a new airman", "Add new person", "New member" → is_add_personnel_command: true
-            - Extract rank, name, assignment location, and any additional details
-            - Default status for new personnel should be "working" if assigned to a location
+            - Extract rank, name, status location, and any additional details
+            - Default status for new personnel should be "front_desk"
+            
+            EVENT CREATION RULES:
+            - Commands like "Schedule squadron PT", "Add formation", "Create event" → is_event_command: true
+            - Extract event title, date, start/end times, and any notes
+            - Events are squadron-wide and don't belong to specific personnel
+            - Examples: "Schedule PT tomorrow at 0730", "Add awards ceremony on Friday at 1400"
             
             PERSONNEL NAME EXTRACTION RULES:
             - Personnel names often appear at the beginning of commands: "smith will be on leave", "Brown is on terminals"
@@ -384,26 +389,46 @@ class GPTParser:
             - ALWAYS extract the personnel name even for leave/appointment commands
             
             Examples:
-            - "Brown is on terminals" → assignment: terminal, status: working
-            - "Davis back and on floor" → assignment: floor, status: working  
-            - "Wilson to admin room" → assignment: admin_room, status: working
-            - "Martinez is available" → status: available (no assignment change)
-            - "Johnson on leave" → personnel_name: "Johnson", status: on_leave (no assignment change)
+            - "Brown is on terminals" → new_status: terminal
+            - "Davis back and on front desk" → new_status: front_desk  
+            - "Wilson to admin room" → new_status: admin_room
+            - "Martinez is float" → new_status: float
+            - "Johnson on leave" → is_appointment_command: true, personnel_name: "Johnson", appointment_type: "leave", needs_clarification: true, clarification_question: "What are the start and end dates for Johnson's leave?"
             - "smith will be on leave starting tomorrow and will return 1 aug" → is_appointment_command: true, personnel_name: "smith", appointment_type: "leave", appointment_date: "2025-08-01"
-            - "We got a new airman who will be in the Terminal the name is Dufus and the Rank is A1C add them to our roster" → is_add_personnel_command: true, personnel_name: "Dufus", personnel_rank: "A1C", new_assignment: "terminal"
-            - "smith is moving to the admin room and ali is moving to the floor" → is_multi_personnel: true, personnel_updates: [{{"personnel_name": "smith", "new_assignment": "admin_room", "new_status": "working"}}, {{"personnel_name": "ali", "new_assignment": "floor", "new_status": "working"}}]
+            - "We got a new airman who will be in the Terminal the name is Dufus and the Rank is A1C add them to our roster" → is_add_personnel_command: true, personnel_name: "Dufus", personnel_rank: "A1C", new_status: "terminal"
+            - "smith is moving to the admin room and ali is moving to the front desk" → is_multi_personnel: true, personnel_updates: [{{"personnel_name": "smith", "new_status": "admin_room"}}, {{"personnel_name": "ali", "new_status": "front_desk"}}]
+            - "Schedule squadron PT tomorrow at 0730" → is_event_command: true, event_title: "Squadron PT", appointment_date: "tomorrow", start_time: "0730"
+            - "Add formation on Friday at 1400 to 1500" → is_event_command: true, event_title: "Formation", appointment_date: "Friday", start_time: "1400", end_time: "1500"
             
             Extract information if this is a command:
-            1. Is this a status/assignment update command?
+            1. Is this a status update command?
             2. Is this an appointment scheduling command?
-            3. Is this an add new personnel command?
-            4. Does this command affect multiple personnel?
-            5. Personnel details (name, rank, assignment, status for each person)
-            6. Appointment details (date, time, type, duration)
-            7. Any additional context or notes
+            3. Is this an event creation command?
+            4. Is this an add new personnel command?
+            5. Does this command affect multiple personnel?
+            6. Personnel details (name, rank, status for each person)
+            7. Appointment details (date, time, type, duration)
+            8. Event details (title, date, start/end times)
+            9. Any additional context or notes
             
             For commands affecting multiple people (like "smith is moving to the admin room and ali is moving to the floor"), 
             extract each person's information separately in the personnel_updates array.
+            
+            CALENDAR ENTRY CLARIFICATION RULES:
+            Ask for clarification when:
+            1. APPOINTMENTS: Missing specific date ("next week", "tomorrow" without exact date) or missing start/end times
+            2. LEAVE: ANY leave mention without specific start/end dates (even "simon is on leave" requires clarification)
+            3. EVENTS: Missing event title, specific date, or start/end times for squadron events
+            4. VAGUE TIMING: Commands with "later", "soon", "next week" without specific dates
+            5. INCOMPLETE TIMES: Commands with only start time but no duration or end time for appointments
+            
+            IMPORTANT: For leave commands without dates, treat as appointment_command with needs_clarification=true
+            
+            Example clarification questions:
+            - "I need a specific date for that appointment. What exact date did you need?"
+            - "What time does that appointment start and end?"
+            - "How many days will you be on leave? What are the start and end dates?"
+            - "What's the title and specific time for that squadron event?"
             
             If you need clarification about the person or command, set needs_clarification to true and provide a question.
             
@@ -411,13 +436,13 @@ class GPTParser:
             {{
                 "is_status_command": boolean,
                 "is_appointment_command": boolean,
+                "is_event_command": boolean,
                 "is_add_personnel_command": boolean,
                 "is_multi_personnel": boolean,
                 "personnel_updates": [
                     {{
                         "personnel_name": "string",
                         "personnel_rank": "string or null",
-                        "new_assignment": "string or null",
                         "new_status": "string or null"
                     }}
                 ],
@@ -427,6 +452,7 @@ class GPTParser:
                 "end_time": "HHMM or null",
                 "duration_hours": "number or null",
                 "all_day": "boolean",
+                "event_title": "string or null",
                 "notes": "string or null",
                 "needs_clarification": boolean,
                 "clarification_question": "string or null",
@@ -439,7 +465,7 @@ class GPTParser:
             
             # Call Claude API
             response = self.client.create_message(
-                model="claude-3-haiku-20240307",
+                model="claude-3-5-sonnet-20241022",
                 max_tokens=400,
                 temperature=0.2,
                 system="You are an AI assistant for military personnel management. Respond only in valid JSON format.",
@@ -491,7 +517,7 @@ class GPTParser:
                     personnel_update = {
                         'personnel_name': parsed_command.get('personnel_name'),
                         'personnel_rank': parsed_command.get('personnel_rank'),
-                        'new_assignment': parsed_command.get('new_assignment'),
+                        # new_assignment removed in new status system
                         'new_status': parsed_command.get('new_status')
                     }
                     parsed_command['personnel_updates'] = [personnel_update]
@@ -505,7 +531,7 @@ class GPTParser:
                     personnel_update = {
                         'personnel_name': parsed_command.get('personnel_name'),
                         'personnel_rank': parsed_command.get('personnel_rank'),
-                        'new_assignment': parsed_command.get('new_assignment'),
+                        # new_assignment removed in new status system
                         'new_status': parsed_command.get('new_status')
                     }
                     parsed_command['personnel_updates'] = [personnel_update]
@@ -516,13 +542,16 @@ class GPTParser:
             elif parsed_command.get('is_appointment_command', False):
                 # Process the appointment command only
                 return self._execute_appointment_command(parsed_command, sender_phone, message_text)
+            elif parsed_command.get('is_event_command', False):
+                # Process the event command
+                return self._execute_event_command(parsed_command, sender_phone, message_text)
             elif parsed_command.get('is_add_personnel_command', False):
                 # Process the add new personnel command
                 return self._execute_add_personnel_command(parsed_command, sender_phone, message_text)
             else:
                 return {
                     'success': False,
-                    'message': 'Not recognized as a status, appointment, or personnel addition command',
+                    'message': 'Not recognized as a status, appointment, event, or personnel addition command',
                     'requires_response': False
                 }
                 
@@ -579,7 +608,6 @@ class GPTParser:
         """Execute the parsed status update command"""
         try:
             personnel_name = parsed_command.get('personnel_name')
-            new_assignment = parsed_command.get('new_assignment')
             new_status = parsed_command.get('new_status')
             
             # Find the person in personnel assignments with improved matching
@@ -630,18 +658,8 @@ class GPTParser:
                 
                 return self._send_clarification_question(sender_phone, question)
             
-            # Update the person's status/assignment
+            # Update the person's status
             updates_made = []
-            if new_assignment:
-                person_found['assignment'] = new_assignment
-                updates_made.append(f"assignment to {new_assignment}")
-                
-                # If assigning to a work location, automatically set status to 'working'
-                # unless a specific status was provided
-                if not new_status and new_assignment in ['terminal', 'admin_room', 'floor']:
-                    person_found['status'] = 'working'
-                    updates_made.append(f"status to working")
-            
             if new_status:
                 person_found['status'] = new_status
                 updates_made.append(f"status to {new_status}")
@@ -676,13 +694,87 @@ class GPTParser:
                 'response_message': "Sorry, I couldn't complete that update. Please try again."
             }
     
+    def _execute_event_command(self, parsed_command, sender_phone, original_message):
+        """Execute command to create squadron-wide events"""
+        try:
+            from calendar_manager import CalendarManager
+            
+            event_title = parsed_command.get('event_title')
+            appointment_date = parsed_command.get('appointment_date')
+            start_time = parsed_command.get('start_time')
+            end_time = parsed_command.get('end_time')
+            all_day = parsed_command.get('all_day', False)
+            notes = parsed_command.get('notes')
+            
+            # Validate required fields
+            if not event_title:
+                return {
+                    'success': False,
+                    'error': 'Event title is required',
+                    'requires_response': True,
+                    'response_message': 'I need a title for that squadron event. What should I call it?'
+                }
+            
+            if not appointment_date:
+                return {
+                    'success': False,
+                    'error': 'Event date is required',
+                    'requires_response': True,
+                    'response_message': 'I need a specific date for that event. What date should I schedule it for?'
+                }
+            
+            # Create event using CalendarManager
+            calendar_manager = CalendarManager()
+            event = calendar_manager.add_event(
+                title=event_title,
+                date=appointment_date,
+                start_time=start_time,
+                end_time=end_time,
+                all_day=all_day
+            )
+            
+            # Create confirmation message
+            date_display = self._format_date_for_display(appointment_date)
+            
+            if all_day:
+                time_display = "all day"
+            elif start_time and end_time:
+                time_display = f"from {self._format_time_for_display(start_time)} to {self._format_time_for_display(end_time)}"
+            elif start_time:
+                time_display = f"at {self._format_time_for_display(start_time)}"
+            else:
+                time_display = "time TBD"
+            
+            confirmation_message = f"Created squadron event '{event_title}' on {date_display} {time_display}."
+            
+            if notes:
+                confirmation_message += f" Notes: {notes}"
+            
+            # Log the event creation
+            print(f"Event created by {sender_phone}: {event_title} on {appointment_date}")
+            
+            return {
+                'success': True,
+                'event_created': event,
+                'requires_response': True,
+                'response_message': confirmation_message
+            }
+            
+        except Exception as e:
+            print(f"Error executing event command: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'requires_response': True,
+                'response_message': "Sorry, I couldn't create that event. Please try again with more details."
+            }
+    
     def _execute_add_personnel_command(self, parsed_command, sender_phone, original_message):
         """Execute command to add new personnel to the roster"""
         try:
             personnel_name = parsed_command.get('personnel_name')
             personnel_rank = parsed_command.get('personnel_rank')
-            new_assignment = parsed_command.get('new_assignment')
-            new_status = parsed_command.get('new_status', 'working')  # Default to working
+            new_status = parsed_command.get('new_status', 'front_desk')  # Default to front_desk
             
             # Validate required fields
             if not personnel_name:
@@ -701,12 +793,12 @@ class GPTParser:
                     'response_message': 'I need the person\'s rank to add them to the roster. Please provide their rank.'
                 }
             
-            if not new_assignment:
+            if not new_status:
                 return {
                     'success': False,
-                    'error': 'Assignment is required',
+                    'error': 'Status is required',
                     'requires_response': True,
-                    'response_message': 'I need to know where to assign them (terminal, admin_room, floor, or section_leads).'
+                    'response_message': 'I need to know their status (terminal, admin_room, front_desk, or float).'
                 }
             
             # Check if person already exists
@@ -721,7 +813,7 @@ class GPTParser:
                     'success': False,
                     'error': 'Person already exists',
                     'requires_response': True,
-                    'response_message': f'{personnel_rank} {personnel_name} is already in our roster. Did you mean to update their assignment instead?'
+                    'response_message': f'{personnel_rank} {personnel_name} is already in our roster. Did you mean to update their status instead?'
                 }
             
             # Generate new ID
@@ -744,7 +836,7 @@ class GPTParser:
                 'rank': personnel_rank,
                 'type': 'military',  # Default to military for now
                 'position': 'Airman',  # Default position
-                'assignment': new_assignment,
+                'status': new_status,
                 'phone': f"(555) 123-{4500 + next_id_number}",  # Generate placeholder phone
                 'email': f"{personnel_name.lower()}.{personnel_rank.lower()}@us.af.mil",
                 'status': new_status,
@@ -758,15 +850,15 @@ class GPTParser:
             self._save_json_file(self.personnel_assignments_file, self.personnel_assignments)
             
             # Create confirmation message
-            confirmation_message = f"Successfully added {personnel_rank} {personnel_name} to the roster with assignment to {new_assignment} and status {new_status}."
+            confirmation_message = f"Successfully added {personnel_rank} {personnel_name} to the roster with status {new_status}."
             
             # Log the addition
-            print(f"New personnel added by {sender_phone}: {personnel_rank} {personnel_name} - {new_assignment}")
+            print(f"New personnel added by {sender_phone}: {personnel_rank} {personnel_name} - {new_status}")
             
             return {
                 'success': True,
                 'person_updated': new_person,
-                'updates_made': [f"added to roster with assignment {new_assignment}"],
+                'updates_made': [f"added to roster with status {new_status}"],
                 'requires_response': True,
                 'response_message': confirmation_message
             }
@@ -800,7 +892,7 @@ class GPTParser:
             # Process each personnel update
             for update in personnel_updates:
                 personnel_name = update.get('personnel_name')
-                new_assignment = update.get('new_assignment')
+                # new_assignment removed - using only status now
                 new_status = update.get('new_status', 'working')  # Default to working
                 
                 if not personnel_name:
@@ -845,15 +937,7 @@ class GPTParser:
                 
                 # Update the person's status/assignment
                 updates_made = []
-                if new_assignment:
-                    person_found['assignment'] = new_assignment
-                    updates_made.append(f"assignment to {new_assignment}")
-                    
-                    # If assigning to a work location, automatically set status to 'working'
-                    # unless a specific status was provided
-                    if new_assignment in ['terminal', 'admin_room', 'floor'] and not update.get('new_status'):
-                        person_found['status'] = 'working'
-                        updates_made.append(f"status to working")
+                # Only update status now (assignment field removed)
                 
                 if new_status:
                     person_found['status'] = new_status
@@ -931,7 +1015,7 @@ class GPTParser:
         try:
             # For now, we'll return the response to be sent
             # In a full implementation, this would integrate with Gmail/Google Voice API
-            clarification_response = f"FSS AI Agent: {question}\n\nPlease reply with more details."
+            clarification_response = f"Vera: {question}\n\nPlease reply with more details."
             
             print(f"Clarification needed for {recipient_phone}: {question}")
             
@@ -952,16 +1036,14 @@ class GPTParser:
             }
     
     def get_personnel_assignments(self):
-        """Get current personnel assignments and statuses"""
+        """Get current personnel status data"""
         return self.personnel_assignments
     
-    def update_personnel_assignment(self, person_id, new_assignment, new_status=None):
-        """Manually update a person's assignment and/or status"""
+    def update_personnel_status(self, person_id, new_status):
+        """Manually update a person's status"""
         try:
             for person in self.personnel_assignments:
                 if person.get('id') == person_id:
-                    if new_assignment:
-                        person['assignment'] = new_assignment
                     if new_status:
                         person['status'] = new_status
                     person['last_updated'] = datetime.now().isoformat()
@@ -972,7 +1054,7 @@ class GPTParser:
             return False
             
         except Exception as e:
-            print(f"Error updating personnel assignment: {e}")
+            print(f"Error updating personnel status: {e}")
             return False
     
     def _execute_appointment_command(self, parsed_command, sender_phone, original_message):
@@ -1058,7 +1140,7 @@ class GPTParser:
                 'personnel_name': person_found.get('name'),
                 'personnel_rank': person_found.get('rank'),  
                 'personnel_type': person_found.get('type'),
-                'assignment': person_found.get('assignment'),
+                'status': person_found.get('status'),
                 'absence_type': appointment_type,
                 'appointment_date': appointment_date,
                 'start_time': start_time,
@@ -1080,7 +1162,7 @@ class GPTParser:
             # Update person's status if appointment is today or ongoing
             today = datetime.now().strftime('%Y-%m-%d')
             if appointment_date == today:
-                person_found['status'] = 'on_appointment'
+                person_found['status'] = 'appointment'
                 person_found['last_updated'] = datetime.now().isoformat()
                 self._save_json_file(self.personnel_assignments_file, self.personnel_assignments)
             

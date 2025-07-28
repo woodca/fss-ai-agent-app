@@ -473,6 +473,55 @@ body {
     background: var(--background-secondary);
 }
 
+/* Liquid Glass Button Styles */
+.liquid-glass-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 12px;
+    padding: 12px 20px;
+    margin: 0 8px;
+    box-shadow: 
+        0 4px 32px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.liquid-glass-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.liquid-glass-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 
+        0 6px 40px rgba(0, 0, 0, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    color: var(--primary-blue);
+}
+
+.liquid-glass-btn:hover::before {
+    left: 100%;
+}
+
+.liquid-glass-btn:active {
+    transform: translateY(0);
+    box-shadow: 
+        0 2px 20px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
 .section-leads-header {
     padding: calc(60px + var(--spacing-xl)) 0 var(--spacing-xl) 0;
     background: linear-gradient(135deg, var(--background-primary) 0%, var(--background-secondary) 100%);
@@ -1048,7 +1097,74 @@ body {
     }
 }
 
-/* AI Agent Chat Interface Styles */
+/* Calendar Category Colors */
+.daily-event-card {
+    border-left: 4px solid #007bff;
+    margin-bottom: 12px;
+    transition: all 0.2s ease;
+}
+
+.daily-event-card.category-appointment {
+    border-left-color: #007bff !important;
+}
+
+.daily-event-card.category-leave {
+    border-left-color: #28a745 !important;
+}
+
+.daily-event-card.category-event {
+    border-left-color: #6f42c1 !important;
+}
+
+.event-type-badge.category-appointment {
+    background-color: #007bff !important;
+    color: white;
+}
+
+.event-type-badge.category-leave {
+    background-color: #28a745 !important;
+    color: white;
+}
+
+.event-type-badge.category-event {
+    background-color: #6f42c1 !important;
+    color: white;
+}
+
+/* Vera Chat Interface Styles */
+.vera-avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.vera-button-avatar {
+    width: 28px;
+    height: 28px;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.vera-nav-avatar {
+    width: 24px;
+    height: 24px;
+    object-fit: cover;
+    border-radius: 50%;
+    vertical-align: middle;
+}
+
+.vera-hero-image {
+    margin: 20px 0;
+}
+
+.vera-hero-avatar {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 50%;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
 .ai-chat-section {
     padding: var(--spacing-xl) 0;
     background: var(--background-primary);
@@ -2005,10 +2121,15 @@ body {
 }
 
 .rufus-icon {
-    font-size: 18px;
+    width: 36px;
+    height: 36px;
     background: rgba(255, 255, 255, 0.15);
-    padding: 8px;
+    padding: 4px;
     border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
 }
 
 .rufus-label {
@@ -2650,6 +2771,27 @@ body {
 }
 
 /* Monthly View Styles */
+.monthly-header {
+    margin-bottom: var(--spacing-md);
+}
+
+.month-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    background: var(--background-secondary);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm) 0;
+    margin-bottom: var(--spacing-sm);
+}
+
+.day-header {
+    text-align: center;
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-secondary);
+    padding: var(--spacing-sm);
+    font-size: 0.875rem;
+}
+
 .month-grid {
     display: flex;
     flex-direction: column;

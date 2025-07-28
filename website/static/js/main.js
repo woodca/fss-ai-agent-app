@@ -1,4 +1,4 @@
-// FSS AI Agent - Main JavaScript
+// Vera - Main JavaScript
 class FSSAgent {
     constructor() {
         this.appointments = [];
@@ -14,9 +14,9 @@ class FSSAgent {
     }
     
     bindEvents() {
-        // Start button click
+        // Calendar button click
         document.getElementById('startButton').addEventListener('click', () => {
-            this.showAppointments();
+            window.location.href = '/calendar';
         });
         
         // Section leads button click

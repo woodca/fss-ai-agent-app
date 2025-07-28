@@ -57,19 +57,20 @@ class SectionCalendar {
         this.showLoading(true);
         
         try {
-            const response = await fetch('/api/personnel-appointments');
+            const response = await fetch('/api/appointments');
             const data = await response.json();
             
             if (data.success) {
                 this.appointments = data.appointments;
+                this.eventsByCategory = data.events_by_category;
                 this.renderCurrentView();
             } else {
-                this.showError('Failed to load appointments');
+                this.showError('Failed to load calendar events');
             }
             
         } catch (error) {
-            console.error('Failed to load appointments:', error);
-            this.showError('Failed to load appointments');
+            console.error('Failed to load calendar events:', error);
+            this.showError('Failed to load calendar events');
         } finally {
             this.showLoading(false);
         }
@@ -393,19 +394,29 @@ class SectionCalendar {
     
     createDailyEventCard(appointment) {
         const card = document.createElement('div');
-        card.className = `daily-event-card ${appointment.absence_type}`;
+        const category = appointment.category || 'appointment';
+        const categoryColor = appointment.category_color || '#007bff';
+        
+        card.className = `daily-event-card category-${category}`;
+        card.style.borderLeftColor = categoryColor;
         
         const timeDisplay = this.formatTime(appointment.start_time, appointment.end_time, appointment.all_day);
+        
+        // Handle events differently (they don't have personnel)
+        const isEvent = category === 'event';
+        const displayName = isEvent ? (appointment.title || 'Squadron Event') : appointment.personnel_name;
         
         card.innerHTML = `
             <div class="event-time-indicator">
                 <div class="event-time">${timeDisplay}</div>
-                <div class="event-type-badge">${this.formatAbsenceType(appointment.absence_type)}</div>
+                <div class="event-type-badge category-${category}" style="background-color: ${categoryColor}">
+                    ${this.formatCategoryType(category, appointment.absence_type, appointment.title)}
+                </div>
             </div>
             <div class="event-details">
                 <div class="event-person">
-                    <span class="person-name">${appointment.personnel_name}</span>
-                    ${appointment.absence_type !== 'leave' ? `<span class="person-assignment">${this.formatAssignment(appointment.assignment)}</span>` : ''}
+                    <span class="person-name">${displayName}</span>
+                    ${!isEvent && appointment.absence_type !== 'leave' ? `<span class="person-assignment">${this.formatAssignment(appointment.status || 'unknown')}</span>` : ''}
                 </div>
                 ${appointment.original_text ? `<div class="event-note">"${appointment.original_text}"</div>` : ''}
             </div>
@@ -450,6 +461,16 @@ class SectionCalendar {
             'other': 'Other'
         };
         return types[type] || type;
+    }
+    
+    formatCategoryType(category, absenceType, title) {
+        if (category === 'event') {
+            return title || 'Event';
+        } else if (category === 'leave') {
+            return 'Leave';
+        } else {
+            return this.formatAbsenceType(absenceType);
+        }
     }
     
     formatAssignment(assignment) {
@@ -559,5 +580,11 @@ let sectionCalendar;
 document.addEventListener('DOMContentLoaded', () => {
     sectionCalendar = new SectionCalendar();
     
-    // Floating buttons are handled by section_leads.js
+    // Initialize floating buttons (AI agent and personnel roster)
+    // Wait a bit to ensure section_leads.js has loaded
+    setTimeout(() => {
+        if (typeof initializeFloatingButtons === 'function') {
+            initializeFloatingButtons();
+        }
+    }, 100);
 });

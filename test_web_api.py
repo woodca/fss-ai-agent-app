@@ -6,7 +6,7 @@ import json
 def test_ai_agent_api():
     """Test the AI agent web API"""
     
-    print("🧪 Testing AI Agent Web API\n")
+    print("🧪 Testing Vera Web API\n")
     
     # Test URL
     url = "http://localhost:5000/api/ai-agent/message"

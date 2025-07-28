@@ -6,7 +6,7 @@ import json
 def test_status_commands():
     """Test the status command processing functionality"""
     
-    print("🤖 Testing FSS AI Agent Status Command Processing\n")
+    print("🤖 Testing Vera Status Command Processing\n")
     
     # Initialize the parser
     try:

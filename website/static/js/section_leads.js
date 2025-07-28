@@ -1,15 +1,23 @@
 // Section Leads Dashboard Manager
 class SectionLeadsDashboard {
     constructor() {
+        console.log('SectionLeadsDashboard constructor called');
         this.personnelStatus = null;
         this.isLoading = false;
+        // Check localStorage for authentication state
+        this.isAuthenticated = localStorage.getItem('veraAuthenticated') === 'true';
         
+        console.log('Calling init()...');
         this.init();
     }
     
     init() {
+        console.log('init() called');
         this.bindEvents();
+        console.log('bindEvents() completed');
+        this.updateInitialMessage();
         this.loadDashboardData();
+        console.log('loadDashboardData() called');
     }
     
     bindEvents() {
@@ -48,10 +56,10 @@ class SectionLeadsDashboard {
         // Personnel roster events
         this.initializePersonnelRoster();
         
-        // Auto-refresh every 2 minutes
+        // Auto-refresh every minute for real-time status updates
         setInterval(() => {
             this.loadDashboardData();
-        }, 120000);
+        }, 60000);
     }
     
     initializeChatInterface() {
@@ -93,6 +101,17 @@ class SectionLeadsDashboard {
         }
     }
     
+    updateInitialMessage() {
+        const initialMessage = document.getElementById('initialMessage');
+        if (initialMessage) {
+            if (this.isAuthenticated) {
+                initialMessage.innerHTML = '<strong>Vera</strong> ready to help!\n\n• Update personnel: "A1C Davis to admin room"\n• Ask questions about staffing';
+            } else {
+                initialMessage.innerHTML = '<strong>Vera</strong> Security Check\n\nWhat is the special code?';
+            }
+        }
+    }
+    
     async sendChatMessage() {
         console.log('sendChatMessage called');
         
@@ -115,6 +134,22 @@ class SectionLeadsDashboard {
         // Clear input and disable send button
         rufusInput.value = '';
         this.updateSendButtonState();
+        
+        // Check authentication first
+        if (!this.isAuthenticated) {
+            if (message.toLowerCase() === 'homeomorphism') {
+                this.isAuthenticated = true;
+                // Save authentication state to localStorage
+                localStorage.setItem('veraAuthenticated', 'true');
+                // Show welcome message
+                this.addRufusMessage('<strong>Vera</strong> ready to help!\n\n• Update personnel: "A1C Davis to admin room"\n• Ask questions about staffing', 'agent');
+                return;
+            } else {
+                // Wrong password
+                this.addRufusMessage('Access denied. What is the special code?', 'agent');
+                return;
+            }
+        }
         
         // Show typing indicator
         console.log('Showing typing indicator');
@@ -160,15 +195,16 @@ class SectionLeadsDashboard {
                 console.log('Adding AI response:', aiResponse);
                 this.addRufusMessage(aiResponse, 'agent');
                 
-                // If this was a status update, refresh the dashboard
-                if (data.message_type === 'status_command' && data.person_updated) {
+                // If this was a status update, refresh the dashboard immediately
+                if (data.message_type === 'status_command' || data.person_updated || aiResponse.includes('Updated') || aiResponse.includes('status')) {
+                    console.log('Status update detected, refreshing dashboard...');
                     setTimeout(() => {
                         this.loadDashboardData();
-                    }, 1000);
+                    }, 500);
                 }
             } else {
                 // Log the full error data for debugging
-                console.error('AI Agent Error:', data);
+                console.error('Vera Error:', data);
                 
                 const errorMessage = data.ai_response || data.error || 'Sorry, I encountered an error. Please try again.';
                 this.addRufusMessage(errorMessage, 'agent');
@@ -199,7 +235,11 @@ class SectionLeadsDashboard {
         
         const avatar = document.createElement('div');
         avatar.className = sender === 'user' ? 'rufus-avatar rufus-user-avatar' : 'rufus-avatar';
-        avatar.textContent = sender === 'user' ? 'You' : '🤖';
+        if (sender === 'user') {
+            avatar.textContent = 'You';
+        } else {
+            avatar.innerHTML = '<img src="/static/vera.png" alt="Vera" class="vera-avatar">';
+        }
         
         const messageContent = document.createElement('div');
         messageContent.className = 'rufus-message-content';
@@ -229,11 +269,11 @@ class SectionLeadsDashboard {
         
         const avatar = document.createElement('div');
         avatar.className = 'rufus-avatar';
-        avatar.textContent = '🤖';
+        avatar.innerHTML = '<img src="/static/vera.png" alt="Vera" class="vera-avatar">';
         
         const messageContent = document.createElement('div');
         messageContent.className = 'rufus-message-content';
-        messageContent.innerHTML = '<em>AI Agent is typing...</em>';
+        messageContent.innerHTML = '<em>Vera is typing...</em>';
         messageContent.style.fontStyle = 'italic';
         messageContent.style.opacity = '0.7';
         
@@ -284,7 +324,7 @@ class SectionLeadsDashboard {
             hour12: true 
         });
         
-        let senderLabel = sender === 'user' ? 'You' : '🤖 AI Agent';
+        let senderLabel = sender === 'user' ? 'You' : '🤖 Vera';
         let messageClass = '';
         
         if (messageType === 'status_command') {
@@ -333,7 +373,7 @@ class SectionLeadsDashboard {
                         <span></span>
                         <span></span>
                     </div>
-                    🤖 AI Agent is typing...
+                    🤖 Vera is typing...
                 </div>
             </div>
         `;
@@ -373,34 +413,48 @@ class SectionLeadsDashboard {
     }
     
     updateStaffingDashboard() {
-        if (!this.personnelStatus) return;
+        console.log('updateStaffingDashboard called with:', this.personnelStatus);
+        
+        if (!this.personnelStatus) {
+            console.log('No personnel status data available');
+            return;
+        }
         
         const { stats, assignments } = this.personnelStatus;
+        console.log('Stats:', stats);
+        console.log('Assignments:', assignments);
         
         // Update overall stats
         document.getElementById('availablePersonnel').textContent = stats.working_count || 0;
         document.getElementById('unavailablePersonnel').textContent = stats.out_of_office_count || 0;
         
-        // Update assignment breakdowns
+        // Update assignment breakdowns  
         this.updateAssignmentCard('floor', assignments.floor);
         this.updateAssignmentCard('admin', assignments.admin_room);
         this.updateAssignmentCard('terminal', assignments.terminal);
+        this.updateAssignmentCard('float', assignments.float);
     }
     
     updateAssignmentCard(cardType, assignmentData) {
+        console.log(`Updating ${cardType} with data:`, assignmentData);
+        
         const countElement = document.getElementById(`${cardType}Count`);
         const personnelElement = document.getElementById(`${cardType}Personnel`);
         
-        // Filter to only show people who are currently working
-        const workingPersonnel = assignmentData.personnel.filter(person => person.status === 'working');
+        console.log(`Found elements: count=${!!countElement}, personnel=${!!personnelElement}`);
+        
+        // All personnel in this status are working in this location
+        const personnel = assignmentData?.personnel || [];
+        
+        console.log(`Personnel array for ${cardType}:`, personnel);
         
         if (countElement) {
-            countElement.textContent = workingPersonnel.length;
+            countElement.textContent = personnel.length;
         }
         
         if (personnelElement) {
             personnelElement.innerHTML = '';
-            workingPersonnel.forEach(person => {
+            personnel.forEach(person => {
                 const personElement = document.createElement('div');
                 personElement.className = `person-item ${person.status}`;
                 
@@ -418,10 +472,12 @@ class SectionLeadsDashboard {
     
     formatStatus(status) {
         const statuses = {
-            'available': 'Available',
-            'working': 'Working',
-            'on_appointment': 'At Appointment',
-            'on_leave': 'On Leave'
+            'front_desk': 'Front Desk',
+            'admin_room': 'Admin Room',
+            'terminal': 'Terminal',
+            'float': 'Float',
+            'leave': 'On Leave',
+            'appointment': 'At Appointment'
         };
         return statuses[status] || status;
     }
@@ -493,7 +549,7 @@ class SectionLeadsDashboard {
             
             // Filter for personnel who are unavailable (on leave or at appointments)
             const unavailable = data.personnel.filter(person => 
-                person.status === 'on_leave' || person.status === 'on_appointment'
+                person.status === 'leave' || person.status === 'appointment'
             );
             
             return unavailable;
@@ -511,23 +567,35 @@ class SectionLeadsDashboard {
         const nameParts = person.name.split(' ');
         const initials = nameParts.map(part => part[0]).join('').slice(0, 2);
         
-        // Format assignment name
-        const assignmentName = this.formatAssignment(person.assignment);
+        // Format assignment name - now using status since it represents location
+        const assignmentName = this.formatStatus(person.status);
         
         // Get reason details
         let reasonText, reasonIcon;
         switch(person.status) {
-            case 'on_appointment':
-                reasonText = 'On Appointment';
+            case 'appointment':
+                reasonText = 'At Appointment';
                 reasonIcon = 'fa-calendar-check';
                 break;
-            case 'on_leave':
+            case 'leave':
                 reasonText = 'On Leave';
                 reasonIcon = 'fa-plane-departure';
                 break;
-            case 'available':
-                reasonText = 'Available';
-                reasonIcon = 'fa-clock';
+            case 'front_desk':
+                reasonText = 'Front Desk';
+                reasonIcon = 'fa-users';
+                break;
+            case 'admin_room':
+                reasonText = 'Admin Room';
+                reasonIcon = 'fa-file-alt';
+                break;
+            case 'terminal':
+                reasonText = 'Terminal';
+                reasonIcon = 'fa-desktop';
+                break;
+            case 'float':
+                reasonText = 'Float';
+                reasonIcon = 'fa-arrows-alt';
                 break;
             default:
                 reasonText = person.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -562,11 +630,12 @@ class SectionLeadsDashboard {
     
     formatStatus(status) {
         const statuses = {
-            'working': 'Working',
-            'available': 'Working',
-            'on_leave': 'On Leave',
-            'on_appointment': 'At Appointment',
-            'out_of_office': 'Out of Office'
+            'front_desk': 'Front Desk',
+            'admin_room': 'Admin Room', 
+            'terminal': 'Terminal',
+            'float': 'Float',
+            'leave': 'On Leave',
+            'appointment': 'At Appointment'
         };
         return statuses[status] || status;
     }
@@ -664,7 +733,7 @@ class SectionLeadsDashboard {
             const otherPersonnel = [];
             
             data.personnel.forEach(person => {
-                if (person.assignment === 'section_leads') {
+                if (person.position && person.position.toLowerCase().includes('section')) {
                     sectionLeads.push(person);
                 } else {
                     otherPersonnel.push(person);
@@ -727,11 +796,11 @@ class SectionLeadsDashboard {
         item.className = `personnel-item ${person.status}`;
         
         // Get initials for avatar
-        const nameParts = person.name.split(' ');
-        const initials = nameParts.map(part => part[0]).join('').slice(0, 2);
+        const fullNameParts = person.full_name.split(' ');
+        const initials = fullNameParts.map(part => part[0]).join('').slice(0, 2);
         
-        // Format assignment name
-        const assignmentName = this.formatAssignment(person.assignment);
+        // Format assignment name - now using status since it represents location
+        const assignmentName = this.formatStatus(person.status);
         
         // Format status name
         const statusName = this.formatStatus(person.status);
@@ -739,7 +808,7 @@ class SectionLeadsDashboard {
         item.innerHTML = `
             <div class="personnel-avatar">${initials}</div>
             <div class="personnel-info">
-                <div class="personnel-name">${person.name}</div>
+                <div class="personnel-name">${person.full_name}</div>
                 <div class="personnel-details">
                     <span>${assignmentName}</span>
                     <span class="personnel-status ${person.status}">${statusName}</span>
@@ -898,7 +967,7 @@ function showPersonnelRoster() {
             const otherPersonnel = [];
             
             data.personnel.forEach(person => {
-                if (person.assignment === 'section_leads') {
+                if (person.position && person.position.toLowerCase().includes('section')) {
                     sectionLeads.push(person);
                 } else {
                     otherPersonnel.push(person);
@@ -962,7 +1031,15 @@ function sendChatMessage() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            addRufusMessage(data.ai_response || data.response, 'agent');
+            const aiResponse = data.ai_response || data.response;
+            addRufusMessage(aiResponse, 'agent');
+            
+            // Refresh page if this was a status update
+            if (data.message_type === 'status_command' || data.person_updated || aiResponse.includes('Updated') || aiResponse.includes('status')) {
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            }
         } else {
             addRufusMessage(data.ai_response || 'Sorry, I encountered an error. Please try again.', 'agent');
         }
@@ -1006,10 +1083,12 @@ function formatAssignment(assignment) {
 
 function formatStatus(status) {
     const statuses = {
-        'working': 'Working',
-        'available': 'Working',
-        'on_leave': 'On Leave',
-        'out_of_office': 'Out of Office',
+        'front_desk': 'Front Desk',
+        'admin_room': 'Admin Room',
+        'terminal': 'Terminal', 
+        'float': 'Float',
+        'leave': 'On Leave',
+        'appointment': 'At Appointment',
         'unknown': 'Unknown'
     };
     return statuses[status] || status;
@@ -1044,11 +1123,11 @@ function createPersonnelItem(person) {
     item.className = `personnel-item ${person.status}`;
     
     // Get initials for avatar
-    const nameParts = person.name.split(' ');
-    const initials = nameParts.map(part => part[0]).join('').slice(0, 2);
+    const fullNameParts = person.full_name.split(' ');
+    const initials = fullNameParts.map(part => part[0]).join('').slice(0, 2);
     
-    // Format assignment name
-    const assignmentName = formatAssignment(person.assignment);
+    // Format assignment name - now using status since it represents location
+    const assignmentName = formatStatus(person.status);
     
     // Format status name
     const statusName = formatStatus(person.status);
@@ -1056,7 +1135,7 @@ function createPersonnelItem(person) {
     item.innerHTML = `
         <div class="personnel-avatar">${initials}</div>
         <div class="personnel-info">
-            <div class="personnel-name">${person.name}</div>
+            <div class="personnel-name">${person.full_name}</div>
             <div class="personnel-details">
                 <span>${assignmentName}</span>
                 <span class="personnel-status ${person.status}">${statusName}</span>
@@ -1069,9 +1148,16 @@ function createPersonnelItem(person) {
 
 // Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM Content Loaded');
+    console.log('Current pathname:', window.location.pathname);
+    
     // Only initialize the full dashboard on the section leads page
     // Other pages will just use the floating button functions
     if (window.location.pathname === '/section-leads') {
+        console.log('Initializing SectionLeadsDashboard...');
         sectionLeadsDashboard = new SectionLeadsDashboard();
+        console.log('SectionLeadsDashboard initialized:', sectionLeadsDashboard);
+    } else {
+        console.log('Not on section-leads page, skipping dashboard initialization');
     }
 });

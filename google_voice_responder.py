@@ -44,7 +44,7 @@ class GoogleVoiceResponder:
             # For now, we'll implement a simple email notification system
             # In production, you'd integrate with Google Voice API or SMS gateway
             
-            subject = f"FSS AI Agent Response to {recipient_phone}"
+            subject = f"Vera Response to {recipient_phone}"
             
             # Create email
             msg = MIMEMultipart()
@@ -54,7 +54,7 @@ class GoogleVoiceResponder:
             
             # Email body with response details
             body = f"""
-FSS AI Agent Response
+Vera Response
 ====================
 
 To: {recipient_phone}
@@ -64,7 +64,7 @@ Message:
 {message}
 
 ---
-This is an automated response from the FSS AI Agent system.
+This is an automated response from the Vera system.
 In production, this would be sent directly to the recipient via Google Voice.
             """
             
@@ -104,7 +104,7 @@ In production, this would be sent directly to the recipient via Google Voice.
             recipient_phone (str): Phone number to send to
             question (str): Clarification question to ask
         """
-        clarification_message = f"🤖 FSS AI Agent:\n\n{question}\n\nPlease reply with more details."
+        clarification_message = f"🤖 Vera:\n\n{question}\n\nPlease reply with more details."
         
         return self.send_response(recipient_phone, clarification_message)
     
@@ -138,7 +138,7 @@ def test_responder():
         },
         {
             'phone': '555-123-4568', 
-            'message': '🤖 FSS AI Agent:\n\nI couldn\'t find "Johnson" in our roster. Did you mean one of these people?\nTSgt Johnson\nSSgt Martinez\n\nPlease reply with more details.'
+            'message': '🤖 Vera:\n\nI couldn\'t find "Johnson" in our roster. Did you mean one of these people?\nTSgt Johnson\nSSgt Martinez\n\nPlease reply with more details.'
         }
     ]
     

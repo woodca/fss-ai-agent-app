@@ -3,22 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Section Leads - FSS AI Agent</title>
+    <title>Section Leads - Vera</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
     <!-- Navigation -->
     <nav class="navbar">
-        <div class="nav-container">
-            <div class="nav-logo">
-                <i class="fas fa-robot"></i>
-                <span>FSS AI Agent</span>
-            </div>
+        <div class="nav-container" style="justify-content: space-between;">
             <div class="nav-actions">
-                <a href="/" class="nav-link">
+                <a href="/" class="nav-link liquid-glass-btn">
                     <i class="fas fa-home"></i>
                     Home
+                </a>
+            </div>
+            <div class="nav-actions">
+                <a href="/calendar" class="nav-link liquid-glass-btn">
+                    <i class="fas fa-calendar"></i>
+                    Calendar
                 </a>
             </div>
         </div>
@@ -59,7 +61,7 @@
                 <div class="assignment-card floor">
                     <div class="assignment-header">
                         <i class="fas fa-users"></i>
-                        <span>Floor</span>
+                        <span>Front Desk</span>
                     </div>
                     <div class="assignment-count" id="floorCount">-</div>
                     <div class="assignment-personnel" id="floorPersonnel"></div>
@@ -82,23 +84,20 @@
                     <div class="assignment-count" id="terminalCount">-</div>
                     <div class="assignment-personnel" id="terminalPersonnel"></div>
                 </div>
+
+                <div class="assignment-card float">
+                    <div class="assignment-header">
+                        <i class="fas fa-arrows-alt"></i>
+                        <span>Float</span>
+                    </div>
+                    <div class="assignment-count" id="floatCount">-</div>
+                    <div class="assignment-personnel" id="floatPersonnel"></div>
+                </div>
                 
             </div>
         </div>
     </section>
 
-    <!-- Navigation Actions -->
-    <section class="navigation-actions">
-        <div class="actions-container">
-            <a href="/calendar" class="action-button calendar-btn">
-                <i class="fas fa-calendar-alt"></i>
-                <div class="action-content">
-                    <span class="action-title">Section Calendar</span>
-                    <small class="action-description">View appointments, training, meetings, PT, and upcoming events</small>
-                </div>
-            </a>
-        </div>
-    </section>
 
     <!-- Floating Personnel Roster Button -->
     <div class="personnel-roster-container" id="personnelRosterContainer">
@@ -115,9 +114,9 @@
         <!-- Chat Toggle Button -->
         <div class="rufus-toggle" id="rufusToggle">
             <div class="rufus-icon">
-                <i class="fas fa-robot"></i>
+                <img src="{{ url_for('static', filename='vera.png') }}" alt="Vera" class="vera-button-avatar">
             </div>
-            <span class="rufus-label">AI Agent</span>
+            <span class="rufus-label">Vera</span>
         </div>
         
         <!-- Chat Window -->
@@ -125,7 +124,7 @@
             <div class="rufus-header">
                 <div class="rufus-title">
                     <i class="fas fa-robot"></i>
-                    <span>FSS AI Agent</span>
+                    <span>Vera</span>
                 </div>
                 <div class="rufus-controls">
                     <button class="rufus-minimize" id="rufusMinimize">
@@ -139,11 +138,10 @@
                 <div class="rufus-messages" id="rufusMessages">
                     <div class="rufus-welcome">
                         <div class="rufus-agent-bubble">
-                            <div class="rufus-avatar">🤖</div>
-                            <div class="rufus-message-content"><strong>FSS AI Agent</strong> ready to help!
+                            <div class="rufus-avatar"><img src="{{ url_for('static', filename='vera.png') }}" alt="Vera" class="vera-avatar"></div>
+                            <div class="rufus-message-content" id="initialMessage"><strong>Vera</strong> Security Check
 
-• Update personnel: "A1C Davis to admin room"
-• Ask questions about staffing</div>
+What is the special code?</div>
                         </div>
                     </div>
                 </div>
