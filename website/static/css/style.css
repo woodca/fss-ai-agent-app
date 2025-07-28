@@ -1133,28 +1133,12 @@ body {
 
 /* Vera Chat Interface Styles */
 .vera-avatar {
-    width: 100%;
-    height: 100%;
-    max-width: 32px;
-    max-height: 32px;
+    width: 32px;
+    height: 32px;
     object-fit: cover;
     border-radius: 50%;
-}
-
-/* Mobile-specific fixes for Vera avatar */
-@media (max-width: 768px) {
-    .vera-avatar {
-        width: 32px !important;
-        height: 32px !important;
-        max-width: 32px !important;
-        max-height: 32px !important;
-    }
-    
-    .rufus-avatar {
-        width: 32px !important;
-        height: 32px !important;
-        flex-shrink: 0 !important;
-    }
+    display: block;
+    flex-shrink: 0;
 }
 
 .vera-button-avatar {
@@ -1182,6 +1166,80 @@ body {
     object-fit: cover;
     border-radius: 50%;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Comprehensive Mobile Responsive Fixes */
+@media (max-width: 768px) {
+    /* Ensure all Vera avatars stay properly sized on mobile */
+    .vera-avatar {
+        width: 32px !important;
+        height: 32px !important;
+        max-width: 32px !important;
+        max-height: 32px !important;
+        object-fit: cover !important;
+        border-radius: 50% !important;
+        display: block !important;
+        flex-shrink: 0 !important;
+    }
+    
+    .vera-button-avatar {
+        width: 28px !important;
+        height: 28px !important;
+        max-width: 28px !important;
+        max-height: 28px !important;
+        object-fit: cover !important;
+        border-radius: 50% !important;
+    }
+    
+    .vera-nav-avatar {
+        width: 24px !important;
+        height: 24px !important;
+        max-width: 24px !important;
+        max-height: 24px !important;
+        object-fit: cover !important;
+        border-radius: 50% !important;
+    }
+    
+    .vera-hero-avatar {
+        width: 80px !important;
+        height: 80px !important;
+        max-width: 80px !important;
+        max-height: 80px !important;
+        object-fit: cover !important;
+        border-radius: 50% !important;
+    }
+    
+    /* Ensure container doesn't overflow */
+    .rufus-avatar {
+        width: 32px !important;
+        height: 32px !important;
+        min-width: 32px !important;
+        min-height: 32px !important;
+        max-width: 32px !important;
+        max-height: 32px !important;
+        flex-shrink: 0 !important;
+        overflow: hidden !important;
+        position: relative !important;
+    }
+    
+    /* Fix chat bubbles on mobile */
+    .rufus-agent-bubble, .rufus-user-bubble {
+        gap: 8px !important;
+        align-items: flex-start !important;
+    }
+    
+    /* Prevent viewport issues - but not for avatars */
+    img:not(.vera-avatar):not(.vera-button-avatar):not(.vera-nav-avatar):not(.vera-hero-avatar) {
+        max-width: 100% !important;
+        height: auto !important;
+    }
+    
+    /* Override any conflicting styles */
+    .vera-avatar, .vera-button-avatar, .vera-nav-avatar, .vera-hero-avatar {
+        position: static !important;
+        transform: none !important;
+        overflow: hidden !important;
+    }
 }
 .ai-chat-section {
     padding: var(--spacing-xl) 0;
@@ -2281,6 +2339,8 @@ body {
     justify-content: center;
     font-size: 16px;
     flex-shrink: 0;
+    overflow: hidden;
+    position: relative;
 }
 
 .rufus-user-avatar {
