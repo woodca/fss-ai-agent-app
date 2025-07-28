@@ -119,6 +119,64 @@ def api_manning():
             'error': str(e)
         }), 500
 
+@app.route('/api/personnel-status')
+def api_personnel_status():
+    """API endpoint to get personnel status and assignments"""
+    try:
+        parser = GPTParser()
+        personnel_assignments = parser.get_personnel_assignments()
+        
+        # Group personnel by status/assignment
+        assignments = {
+            'floor': {'personnel': []},
+            'admin_room': {'personnel': []}, 
+            'terminal': {'personnel': []},
+            'float': {'personnel': []}
+        }
+        
+        # Count working vs out of office
+        working_count = 0
+        out_of_office_count = 0
+        
+        for person in personnel_assignments:
+            status = person.get('status', 'unknown')
+            
+            # Map status to assignment categories
+            if status in ['front_desk', 'working']:
+                assignments['floor']['personnel'].append(person)
+                working_count += 1
+            elif status == 'admin_room':
+                assignments['admin_room']['personnel'].append(person)
+                working_count += 1
+            elif status == 'terminal':
+                assignments['terminal']['personnel'].append(person)
+                working_count += 1
+            elif status == 'float':
+                assignments['float']['personnel'].append(person)
+                working_count += 1
+            else:
+                # leave, appointment, etc.
+                out_of_office_count += 1
+        
+        stats = {
+            'working_count': working_count,
+            'out_of_office_count': out_of_office_count,
+            'total_count': len(personnel_assignments)
+        }
+        
+        return jsonify({
+            'success': True,
+            'stats': stats,
+            'assignments': assignments
+        })
+        
+    except Exception as e:
+        print(f"Error getting personnel status: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/contacts')
 def api_contacts():
     """API endpoint to get contact information"""
