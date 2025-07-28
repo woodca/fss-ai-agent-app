@@ -13,11 +13,28 @@ class SectionLeadsDashboard {
     
     init() {
         console.log('init() called');
+        console.log('Browser info:', {
+            userAgent: navigator.userAgent,
+            vendor: navigator.vendor,
+            platform: navigator.platform
+        });
+        
+        // Check for required features
+        if (!window.fetch) {
+            console.error('Fetch API not supported');
+            this.showError('Browser not supported. Please update your browser.');
+            return;
+        }
+        
         this.bindEvents();
         console.log('bindEvents() completed');
         this.updateInitialMessage();
-        this.loadDashboardData();
-        console.log('loadDashboardData() called');
+        
+        // Load dashboard data with a small delay for Safari
+        setTimeout(() => {
+            this.loadDashboardData();
+            console.log('loadDashboardData() called');
+        }, 100);
     }
     
     bindEvents() {
@@ -393,20 +410,73 @@ class SectionLeadsDashboard {
         this.showLoading(true);
         
         try {
-            // Load personnel status
-            const statusResponse = await fetch('/api/personnel-status');
+            console.log('Loading dashboard data...');
+            console.log('Browser:', navigator.userAgent.substring(0, 50));
+            
+            // Enhanced Safari-specific debugging
+            const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+            if (isSafari) {
+                console.log('Safari browser detected - using enhanced error handling');
+            }
+            
+            // Load personnel status with better error handling for Safari
+            console.log('Attempting to fetch /api/personnel-status...');
+            
+            const statusResponse = await fetch('/api/personnel-status', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                },
+                cache: 'no-store',
+                credentials: 'same-origin'
+            });
+            
+            console.log('Status response received:', {
+                status: statusResponse.status,
+                statusText: statusResponse.statusText,
+                ok: statusResponse.ok,
+                type: statusResponse.type,
+                url: statusResponse.url
+            });
+            
+            if (!statusResponse.ok) {
+                const errorText = await statusResponse.text();
+                console.error('Status API error response body:', errorText);
+                throw new Error(`Status API failed: ${statusResponse.status} ${statusResponse.statusText} - ${errorText}`);
+            }
+            
+            console.log('Parsing status response as JSON...');
             const statusData = await statusResponse.json();
+            console.log('Status data parsed successfully:', statusData);
             
             if (statusData.success) {
                 this.personnelStatus = statusData;
+                console.log('Personnel status set:', this.personnelStatus);
                 this.updateStaffingDashboard();
+                console.log('Dashboard update completed successfully');
             } else {
-                this.showError('Failed to load personnel status');
+                console.error('API returned error:', statusData.error);
+                this.showError('Failed to load personnel status: ' + (statusData.error || 'Unknown error'));
             }
             
         } catch (error) {
             console.error('Failed to load dashboard data:', error);
-            this.showError('Failed to load dashboard data');
+            console.error('Error details:', {
+                name: error.name,
+                message: error.message,
+                stack: error.stack,
+                cause: error.cause
+            });
+            
+            // More detailed error message for Safari users
+            if (/^((?!chrome|android).)*safari/i.test(navigator.userAgent)) {
+                console.error('Safari-specific error occurred - this might be a fetch/CORS issue');
+                this.showError(`Safari Error: ${error.message}. Please try refreshing or use Chrome/Edge.`);
+            } else {
+                this.showError('Failed to load dashboard data: ' + error.message);
+            }
         } finally {
             this.showLoading(false);
         }
@@ -1148,15 +1218,84 @@ function createPersonnelItem(person) {
 
 // Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM Content Loaded');
+    console.log('DOM Content Loaded - Version 2.0');
     console.log('Current pathname:', window.location.pathname);
+    console.log('User agent:', navigator.userAgent);
+    console.log('Is Safari:', /^((?!chrome|android).)*safari/i.test(navigator.userAgent));
+    
+    // Enhanced Safari debugging
+    if (/^((?!chrome|android).)*safari/i.test(navigator.userAgent)) {
+        console.log('Safari detected - adding enhanced error handling');
+        
+        // Test basic fetch functionality
+        window.addEventListener('error', (e) => {
+            console.error('Global JavaScript error in Safari:', e.error, e.filename, e.lineno);
+        });
+        
+        window.addEventListener('unhandledrejection', (e) => {
+            console.error('Unhandled promise rejection in Safari:', e.reason);
+        });
+        
+        // Test if fetch is available and working
+        try {
+            console.log('Testing fetch availability...');
+            console.log('fetch function exists:', typeof fetch !== 'undefined');
+            console.log('Promise support:', typeof Promise !== 'undefined');
+            
+            // Test a simple fetch to see if it works in Safari
+            fetch('/api/personnel-status', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-cache'
+                }
+            }).then(response => {
+                console.log('Safari test fetch response status:', response.status);
+                console.log('Safari test fetch response ok:', response.ok);
+                return response.text();
+            }).then(text => {
+                console.log('Safari test fetch response text length:', text.length);
+                console.log('Safari test fetch first 200 chars:', text.substring(0, 200));
+            }).catch(error => {
+                console.error('Safari test fetch failed:', error);
+                console.error('Error name:', error.name);
+                console.error('Error message:', error.message);
+                console.error('Error stack:', error.stack);
+            });
+        } catch (e) {
+            console.error('Safari fetch test setup failed:', e);
+        }
+    }
     
     // Only initialize the full dashboard on the section leads page
     // Other pages will just use the floating button functions
     if (window.location.pathname === '/section-leads') {
         console.log('Initializing SectionLeadsDashboard...');
-        sectionLeadsDashboard = new SectionLeadsDashboard();
-        console.log('SectionLeadsDashboard initialized:', sectionLeadsDashboard);
+        
+        try {
+            sectionLeadsDashboard = new SectionLeadsDashboard();
+            console.log('SectionLeadsDashboard initialized successfully:', sectionLeadsDashboard);
+        } catch (error) {
+            console.error('Failed to initialize SectionLeadsDashboard:', error);
+            console.error('Error details:', {
+                name: error.name,
+                message: error.message,
+                stack: error.stack
+            });
+            
+            // Show user-friendly error message
+            document.body.innerHTML = `
+                <div style="padding: 20px; background: #f8f9fa; border: 1px solid #dee2e6; margin: 20px; border-radius: 8px;">
+                    <h3 style="color: #dc3545;">Dashboard Loading Error</h3>
+                    <p>There was an error loading the section leads dashboard. This might be a browser compatibility issue.</p>
+                    <details>
+                        <summary>Technical Details</summary>
+                        <pre style="background: #f1f1f1; padding: 10px; font-size: 12px;">${error.message}\n\n${error.stack}</pre>
+                    </details>
+                    <p><a href="javascript:location.reload()">Try Refreshing</a></p>
+                </div>
+            `;
+        }
     } else {
         console.log('Not on section-leads page, skipping dashboard initialization');
     }
