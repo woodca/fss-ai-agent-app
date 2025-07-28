@@ -238,7 +238,7 @@ class SectionLeadsDashboard {
         if (sender === 'user') {
             avatar.textContent = 'You';
         } else {
-            avatar.innerHTML = '<img src="/static/vera.png" alt="Vera" class="vera-avatar">';
+            avatar.innerHTML = '<i class="fas fa-robot"></i>';
         }
         
         const messageContent = document.createElement('div');
@@ -269,7 +269,7 @@ class SectionLeadsDashboard {
         
         const avatar = document.createElement('div');
         avatar.className = 'rufus-avatar';
-        avatar.innerHTML = '<img src="/static/vera.png" alt="Vera" class="vera-avatar">';
+        avatar.innerHTML = '<i class="fas fa-robot"></i>';
         
         const messageContent = document.createElement('div');
         messageContent.className = 'rufus-message-content';
