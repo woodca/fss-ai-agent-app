@@ -1135,8 +1135,26 @@ body {
 .vera-avatar {
     width: 100%;
     height: 100%;
+    max-width: 32px;
+    max-height: 32px;
     object-fit: cover;
     border-radius: 50%;
+}
+
+/* Mobile-specific fixes for Vera avatar */
+@media (max-width: 768px) {
+    .vera-avatar {
+        width: 32px !important;
+        height: 32px !important;
+        max-width: 32px !important;
+        max-height: 32px !important;
+    }
+    
+    .rufus-avatar {
+        width: 32px !important;
+        height: 32px !important;
+        flex-shrink: 0 !important;
+    }
 }
 
 .vera-button-avatar {
