@@ -13,10 +13,15 @@ os.chdir(script_dir)
 from gpt_parser import GPTParser
 from calendar_manager import CalendarManager
 from vera_agent import VeraAgent
+from database_manager import DatabaseManager
+from twilio_handler import TwilioHandler
 
 app = Flask(__name__, 
             template_folder='website/templates',
             static_folder='website/static')
+
+# Initialize database manager
+db = DatabaseManager()
 
 @app.route('/')
 def home():
@@ -35,31 +40,65 @@ def calendar():
 
 @app.route('/api/appointments')
 def api_appointments():
-    """API endpoint to get all calendar events (appointments, leave, events)"""
+    """API endpoint to get all appointments from database"""
     try:
-        calendar_mgr = CalendarManager()
+        print(f"Getting appointments from database...")
         
-        # Update personnel statuses in real-time
-        calendar_mgr.update_personnel_statuses()
+        # Get calendar events from database
+        events_data = db.get_calendar_events()
         
-        # Get events by category with colors
-        events_by_category = calendar_mgr.get_events_by_category()
+        # Format appointments for the frontend
+        formatted_appointments = []
+        for apt in events_data['personnel_appointments']:
+            formatted_appointments.append({
+                'id': apt.get('id'),
+                'personnel_name': apt.get('personnel_name', 'Unknown'),
+                'personnel_rank': apt.get('personnel_rank'),
+                'absence_type': apt.get('absence_type'),
+                'appointment_date': apt.get('appointment_date'),
+                'end_date': apt.get('end_date'),  # Include end_date for multi-day appointments
+                'start_time': apt.get('start_time'),
+                'end_time': apt.get('end_time'),
+                'duration_hours': apt.get('duration_hours'),
+                'all_day': apt.get('all_day', False),
+                'notes': apt.get('notes'),
+                'created_timestamp': apt.get('created_timestamp'),
+                'category_color': apt.get('category_color', '#FFC107')
+            })
         
-        # Flatten for backward compatibility while adding new structure
-        all_events = []
-        for category, data in events_by_category.items():
-            for event in data['events']:
-                event['category_color'] = data['color']
-                all_events.append(event)
+        # Also include general events
+        formatted_events = []
+        for event in events_data['general_events']:
+            formatted_events.append({
+                'id': event.get('id'),
+                'title': event.get('title'),
+                'event_type': event.get('event_type'),
+                'event_date': event.get('event_date'),
+                'start_time': event.get('start_time'),
+                'end_time': event.get('end_time'),
+                'location': event.get('location'),
+                'description': event.get('description'),
+                'all_day': event.get('all_day', False),
+                'category_color': event.get('category_color', '#007BFF')
+            })
+        
+        print(f"Database appointments count: {len(formatted_appointments)}")
+        print(f"Database general events count: {len(formatted_events)}")
         
         return jsonify({
             'success': True,
-            'appointments': all_events,  # Keep old name for compatibility
-            'events_by_category': events_by_category,
-            'total_count': len(all_events)
+            'appointments': formatted_appointments,
+            'general_events': formatted_events,
+            'total_appointments': len(formatted_appointments),
+            'total_events': len(formatted_events),
+            'debug_info': {
+                'source': 'database',
+                'date_range': events_data['date_range']
+            }
         })
     
     except Exception as e:
+        print(f"Error in api_appointments: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -115,74 +154,71 @@ def api_contacts():
 
 @app.route('/api/personnel-status')
 def api_personnel_status():
-    """API endpoint to get current personnel staffing status with real-time updates"""
+    """API endpoint to get personnel status and assignments from database"""
     try:
-        calendar_mgr = CalendarManager()
+        print("Getting personnel status from database...")
         
-        # Update personnel statuses based on current appointments/leave
-        updates_made = calendar_mgr.update_personnel_statuses()
+        # Get personnel status summary from database
+        summary = db.get_personnel_status_summary()
+        personnel_list = db.get_all_personnel()
         
-        # Load updated personnel data
-        personnel = calendar_mgr.personnel
-        
-        print(f"Loaded {len(personnel)} personnel records")
-        if updates_made:
-            print(f"Real-time updates made: {updates_made}")
-        
-        # Calculate staffing stats
-        total_personnel = len(personnel)
-        military_count = len([p for p in personnel if p['type'] == 'military'])
-        civilian_count = len([p for p in personnel if p['type'] == 'civilian'])
-        
-        # Working count = people in work locations (front_desk, admin_room, terminal, float)
-        # Out of office = people unavailable (leave, appointment)
-        working_statuses = ['front_desk', 'admin_room', 'terminal', 'float']
-        unavailable_statuses = ['leave', 'appointment']
-        
-        working_count = len([p for p in personnel if p['status'] in working_statuses])
-        out_of_office_count = len([p for p in personnel if p['status'] in unavailable_statuses])
-        
-        # Assignment breakdown by status
+        # Group personnel by status/assignment
         assignments = {
-            'terminal': [p for p in personnel if p['status'] == 'terminal'],
-            'admin_room': [p for p in personnel if p['status'] == 'admin_room'],
-            'floor': [p for p in personnel if p['status'] == 'front_desk'],
-            'float': [p for p in personnel if p['status'] == 'float']
+            'floor': {'personnel': []},
+            'admin_room': {'personnel': []}, 
+            'terminal': {'personnel': []},
+            'float': {'personnel': []}
         }
         
-        assignment_stats = {}
-        for assignment, people in assignments.items():
-            assignment_stats[assignment] = {
-                'count': len(people),
-                'personnel': people  # Send the full person objects, not just extracted fields
-            }
+        for person in personnel_list:
+            status = person.get('status', 'unknown')
+            
+            # Map status to assignment categories
+            if status in ['front_desk', 'working']:
+                assignments['floor']['personnel'].append(person)
+            elif status == 'admin_room':
+                assignments['admin_room']['personnel'].append(person)
+            elif status == 'terminal':
+                assignments['terminal']['personnel'].append(person)
+            elif status == 'float':
+                assignments['float']['personnel'].append(person)
+            # For leave/appointment, they won't be in assignments but will be in out_of_office
         
-        # Ensure all sections exist even if empty
-        for section in ['terminal', 'admin_room', 'floor', 'float']:
-            if section not in assignment_stats:
-                assignment_stats[section] = {'count': 0, 'personnel': []}
+        # Get unavailable personnel details
+        unavailable_personnel = summary.get('unavailable_personnel', [])
         
-        result = {
+        # Calculate military vs civilian counts
+        military_count = sum(1 for p in personnel_list if p.get('type') == 'military')
+        civilian_count = sum(1 for p in personnel_list if p.get('type') == 'civilian')
+        
+        # Add count field to assignments
+        for assignment_key in assignments:
+            assignments[assignment_key]['count'] = len(assignments[assignment_key]['personnel'])
+        
+        stats = {
+            'total_personnel': summary.get('total_personnel', 0),
+            'military_count': military_count,
+            'civilian_count': civilian_count,
+            'working_count': summary.get('working_count', 0),
+            'out_of_office_count': summary.get('out_of_office_count', 0)
+        }
+        
+        print(f"Database personnel stats: {stats}")
+        print(f"Unavailable personnel count: {len(unavailable_personnel)}")
+        
+        return jsonify({
             'success': True,
-            'stats': {
-                'total_personnel': total_personnel,
-                'military_count': military_count,
-                'civilian_count': civilian_count,
-                'working_count': working_count,
-                'out_of_office_count': out_of_office_count
-            },
-            'assignments': assignment_stats,
-            'real_time_updates': updates_made,
-            'timestamp': datetime.now().isoformat()
-        }
+            'stats': stats,
+            'assignments': assignments,
+            'unavailable_personnel': unavailable_personnel,
+            'debug_info': {
+                'source': 'database',
+                'status_counts': summary.get('status_counts', {})
+            }
+        })
         
-        print(f"Returning result with {len(assignment_stats)} assignment categories")
-        return jsonify(result)
-    
     except Exception as e:
-        import traceback
-        print(f"Error in api_personnel_status: {e}")
-        traceback.print_exc()
+        print(f"Error getting personnel status from database: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -190,13 +226,10 @@ def api_personnel_status():
 
 @app.route('/api/personnel')
 def api_personnel():
-    """API endpoint to get all personnel data"""
+    """API endpoint to get all personnel data from database"""
     try:
-        import json
-        
-        # Load personnel data from file
-        with open('personnel_assignments.json', 'r') as f:
-            personnel = json.load(f)
+        # Get personnel data from database
+        personnel = db.get_all_personnel()
         
         return jsonify({
             'success': True,
@@ -330,6 +363,26 @@ def api_ai_agent_message():
             'error': str(e),
             'ai_response': 'Sorry, I encountered an error. Please try again.'
         }), 500
+
+@app.route('/api/twilio/sms', methods=['POST'])
+def twilio_sms_webhook():
+    """Webhook endpoint for incoming Twilio SMS messages"""
+    try:
+        # Initialize Twilio handler
+        twilio = TwilioHandler()
+        
+        # Process the webhook and get TwiML response
+        twiml_response = twilio.handle_webhook(request.form)
+        
+        # Return TwiML response with proper content type
+        return twiml_response, 200, {'Content-Type': 'text/xml'}
+        
+    except Exception as e:
+        print(f"Error processing Twilio webhook: {e}")
+        # Return empty TwiML response on error
+        from twilio.twiml.messaging_response import MessagingResponse
+        resp = MessagingResponse()
+        return str(resp), 200, {'Content-Type': 'text/xml'}
 
 
 if __name__ == '__main__':

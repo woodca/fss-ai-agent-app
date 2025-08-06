@@ -1,0 +1,72 @@
+.personnel-card {
+  padding: 12px 16px;
+  background: var(--background-tertiary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  transition: all 0.2s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.personnel-card:hover {
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.personnel-info {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.personnel-rank {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.personnel-name {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-badge.available {
+  background: rgba(52, 199, 89, 0.1);
+  color: var(--success-green);
+}
+
+.status-badge.leave {
+  background: rgba(255, 149, 0, 0.1);
+  color: var(--warning-orange);
+}
+
+.status-badge.appointment {
+  background: rgba(255, 59, 48, 0.1);
+  color: var(--error-red);
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .personnel-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .personnel-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}

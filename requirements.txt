@@ -8,3 +8,4 @@ anthropic==0.7.0
 python-dotenv==1.0.0
 requests==2.31.0
 pytz==2023.3
+twilio==8.10.0

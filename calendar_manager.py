@@ -111,8 +111,15 @@ class CalendarManager:
                 appointment.get('status') == 'active'):
                 
                 # Check if it's a leave day (all day)
-                if appointment.get('category') == 'leave' or appointment.get('all_day'):
-                    return 'leave' if appointment.get('category') == 'leave' else 'appointment'
+                if (appointment.get('category') == 'leave' or 
+                    appointment.get('absence_type') == 'leave' or 
+                    appointment.get('all_day')):
+                    # Return 'leave' for leave appointments, 'appointment' for others
+                    if (appointment.get('category') == 'leave' or 
+                        appointment.get('absence_type') == 'leave'):
+                        return 'leave'
+                    else:
+                        return 'appointment'
                 
                 # Check if currently within appointment time
                 start_time = appointment.get('start_time')
@@ -140,7 +147,7 @@ class CalendarManager:
         
         for appointment in self.appointments:
             if (appointment.get('personnel_name') == personnel_name and
-                appointment.get('category') == 'leave' and
+                (appointment.get('category') == 'leave' or appointment.get('absence_type') == 'leave') and
                 appointment.get('status') == 'active'):
                 
                 start_date = appointment.get('appointment_date')
@@ -180,7 +187,7 @@ class CalendarManager:
         
         if updates_made:
             self._save_json_file(self.personnel_file, self.personnel)
-            print(f"Status updates made: {updates_made}")
+            print(f"Status updates made: {len(updates_made)} changes")
         
         return updates_made
     

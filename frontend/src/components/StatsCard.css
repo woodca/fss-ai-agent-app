@@ -1,0 +1,75 @@
+.stat-card {
+  background: var(--background-tertiary);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+  text-align: center;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--card-shadow);
+}
+
+.stat-card.clickable {
+  cursor: pointer;
+}
+
+.stat-card.clickable:focus {
+  outline: 2px solid var(--primary-blue);
+  outline-offset: 2px;
+}
+
+.stat-card.available {
+  border-color: var(--success-green);
+  background: rgba(52, 199, 89, 0.05);
+}
+
+.stat-card.available .stat-number {
+  color: var(--success-green);
+}
+
+.stat-card.unavailable {
+  border-color: var(--error-red);
+  background: rgba(255, 59, 48, 0.05);
+}
+
+.stat-card.unavailable .stat-number {
+  color: var(--error-red);
+}
+
+.stat-number {
+  font-size: 36px;
+  font-weight: var(--font-weight-bold);
+  color: var(--primary-blue);
+  margin-bottom: var(--spacing-xs);
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-action {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+.stat-card:hover .stat-action {
+  opacity: 1;
+}

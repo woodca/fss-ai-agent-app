@@ -6,7 +6,6 @@ from datetime import datetime
 from dotenv import load_dotenv
 from anthropic_direct import AnthropicDirect
 from appointment_manager import AppointmentManager
-from database_manager import DatabaseManager
 
 # Load .env file only if it exists
 if os.path.exists('.env'):
@@ -29,41 +28,38 @@ class VeraAgent:
         
         self.client = AnthropicDirect(self.api_key)
         
-        # Initialize database manager
-        self.db = DatabaseManager()
-        
-        # Initialize enhanced appointment manager
-        self.appointment_manager = AppointmentManager()
-        
-        # Load data from database instead of JSON files
-        self.personnel_assignments = self.db.get_all_personnel()
-        
-        # Legacy file paths for backward compatibility (not used)
+        # Data files
         self.appointments_file = 'appointments.json'
         self.contacts_file = 'contacts.json'
         self.personnel_file = 'personnel.json'
         self.personnel_assignments_file = 'personnel_assignments.json'
+        
+        # Initialize enhanced appointment manager
+        self.appointment_manager = AppointmentManager()
+        
+        # Load data
+        self.appointments = self._load_json_file(self.appointments_file, [])
+        self.contacts = self._load_json_file(self.contacts_file, [])
+        self.personnel = self._load_json_file(self.personnel_file, [])
+        self.personnel_assignments = self._load_json_file(self.personnel_assignments_file, [])
     
     def _load_json_file(self, filename, default):
-        """Legacy method - now redirects to database operations"""
-        if filename == self.personnel_assignments_file:
-            return self.db.get_all_personnel()
-        else:
-            # For other files, return empty default (database handles this data)
+        """Load JSON file or return default if file doesn't exist"""
+        try:
+            with open(filename, 'r') as f:
+                return json.load(f)
+        except FileNotFoundError:
             return default
     
     def _save_json_file(self, filename, data):
-        """Legacy method - database operations handled automatically"""
-        # Database operations are handled automatically by DatabaseManager
-        # This method is kept for backward compatibility but does nothing
-        pass
+        """Save data to JSON file"""
+        with open(filename, 'w') as f:
+            json.dump(data, f, indent=2)
     
     # FUNCTION DEFINITIONS - These are the tools Vera can use
     
     def get_personnel_roster(self):
-        """Get the current personnel roster with statuses from database"""
-        # Refresh personnel data from database
-        self.personnel_assignments = self.db.get_all_personnel()
+        """Get the current personnel roster with statuses"""
         return {
             "function": "get_personnel_roster",
             "result": self.personnel_assignments,
@@ -71,42 +67,39 @@ class VeraAgent:
         }
     
     def update_personnel_status(self, personnel_name, new_status):
-        """Update a person's status using database"""
-        # Find person using database
-        person_found = self.db.find_personnel(personnel_name)
+        """Update a person's status (front_desk, admin_room, terminal, float, leave, on_appointment)"""
+        # Find person
+        person_found = None
+        for person in self.personnel_assignments:
+            person_name_field = person.get('name', '').lower()
+            if personnel_name.lower() in person_name_field:
+                person_found = person
+                break
         
         if not person_found:
-            # Get available personnel for suggestions
-            all_personnel = self.db.get_all_personnel()
-            available_names = [p.get('name', '') for p in all_personnel[:5]]
             return {
                 "function": "update_personnel_status",
                 "success": False,
                 "error": f"Could not find '{personnel_name}' in roster",
-                "available_personnel": available_names
+                "available_personnel": [p.get('name') for p in self.personnel_assignments[:5]]
             }
         
-        # Update status using database
+        # Update status
         old_status = person_found.get('status')
-        result = self.db.update_personnel_status(person_found['id'], new_status)
+        person_found['status'] = new_status
+        person_found['last_updated'] = datetime.now().isoformat()
         
-        if result['success']:
-            # Refresh personnel data
-            self.personnel_assignments = self.db.get_all_personnel()
-            return {
-                "function": "update_personnel_status",
-                "success": True,
-                "person_updated": person_found.get('name'),
-                "old_status": old_status,
-                "new_status": new_status,
-                "message": f"Updated {person_found.get('name')} from {old_status} to {new_status}"
-            }
-        else:
-            return {
-                "function": "update_personnel_status",
-                "success": False,
-                "error": f"Failed to update status: {result.get('error', 'Unknown error')}"
-            }
+        # Save
+        self._save_json_file(self.personnel_assignments_file, self.personnel_assignments)
+        
+        return {
+            "function": "update_personnel_status",
+            "success": True,
+            "person_updated": person_found.get('name'),
+            "old_status": old_status,
+            "new_status": new_status,
+            "message": f"Updated {person_found.get('name')} from {old_status} to {new_status}"
+        }
     
     def add_appointment(self, personnel_name, appointment_type, appointment_date, start_time=None, end_time=None, all_day=False, notes=None):
         """Add an appointment/leave entry to the calendar"""
@@ -178,81 +171,6 @@ class VeraAgent:
             "summary": f"Found {len(filtered_appointments)} appointments"
         }
     
-    def delete_personnel_appointments(self, personnel_name, appointment_type=None):
-        """Delete appointments for personnel and update their status"""
-        # Find person using database
-        person_found = self.db.find_personnel(personnel_name)
-        
-        if not person_found:
-            return {
-                "function": "delete_personnel_appointments", 
-                "success": False,
-                "error": f"Could not find '{personnel_name}' in roster"
-            }
-        
-        try:
-            with self.db.transaction() as conn:
-                # Get current appointments to see what we're deleting
-                if appointment_type:
-                    appointments = conn.execute(
-                        "SELECT * FROM appointments WHERE personnel_id = ? AND absence_type = ? AND status = 'active'", 
-                        (person_found['id'], appointment_type)
-                    ).fetchall()
-                else:
-                    appointments = conn.execute(
-                        "SELECT * FROM appointments WHERE personnel_id = ? AND status = 'active'", 
-                        (person_found['id'],)
-                    ).fetchall()
-                
-                if not appointments:
-                    return {
-                        "function": "delete_personnel_appointments",
-                        "success": False,
-                        "error": f"No {'active' if not appointment_type else appointment_type} appointments found for {person_found['name']}"
-                    }
-                
-                # Delete appointments
-                if appointment_type:
-                    conn.execute(
-                        "DELETE FROM appointments WHERE personnel_id = ? AND absence_type = ? AND status = 'active'", 
-                        (person_found['id'], appointment_type)
-                    )
-                    message = f"Deleted {len(appointments)} {appointment_type} appointment(s) for {person_found['name']}"
-                else:
-                    conn.execute(
-                        "DELETE FROM appointments WHERE personnel_id = ? AND status = 'active'", 
-                        (person_found['id'],)
-                    )
-                    message = f"Deleted {len(appointments)} appointment(s) for {person_found['name']}"
-                
-                # Update person's status back to working if they had leave/appointment status
-                if person_found.get('status') in ['leave', 'appointment']:
-                    # Restore to previous status or default to 'front_desk' (valid status)
-                    prev_status = person_found.get('previous_status')
-                    valid_statuses = ['front_desk', 'admin_room', 'terminal', 'float', 'leave', 'appointment']
-                    new_status = prev_status if prev_status in valid_statuses else 'front_desk'
-                    conn.execute(
-                        "UPDATE personnel SET status = ?, last_updated = datetime('now') WHERE id = ?",
-                        (new_status, person_found['id'])
-                    )
-                    message += f". Status updated from {person_found['status']} to {new_status}"
-            
-            # Refresh personnel data
-            self.personnel_assignments = self.db.get_all_personnel()
-            
-            return {
-                "function": "delete_personnel_appointments",
-                "success": True,
-                "message": message
-            }
-            
-        except Exception as e:
-            return {
-                "function": "delete_personnel_appointments",
-                "success": False,
-                "error": f"Database error: {str(e)}"
-            }
-    
     def undo_last_action(self):
         """Undo the last personnel status change"""
         # This is a simplified undo - in production you'd want a proper action history
@@ -283,7 +201,7 @@ class VeraAgent:
             IMPORTANT: Use the conversation context below to understand pronouns and references like "he", "she", "they", or names mentioned earlier.
 
             Valid personnel statuses: front_desk, admin_room, terminal, float, leave, appointment
-            Valid appointment types: medical, dental, personal_business, leave, tdy, other
+            Valid appointment types: medical, dental, personal_business, leave, other
             
             IMPORTANT STATUS INTERPRETATION RULES:
             - When someone is "on front desk" or "on floor" → status should be "front_desk"
@@ -292,12 +210,6 @@ class VeraAgent:
             - When someone is "float" or "floating" → status should be "float"
             - When someone is "on leave" or "out" → status should be "leave"
             - When someone is "at appointment" or "has appointment" → status should be "appointment"
-            
-            DELETE COMMAND INTERPRETATION RULES:
-            - "delete all of [person]'s leave" → is_delete_command: true, personnel_name: "[person]", delete_type: "leave"
-            - "remove [person]'s appointments" → is_delete_command: true, personnel_name: "[person]", delete_type: "appointments"
-            - "cancel [person]'s leave" → is_delete_command: true, personnel_name: "[person]", delete_type: "leave"
-            - "clear [person]'s calendar" → is_delete_command: true, personnel_name: "[person]", delete_type: "all"
             
             NEW PERSONNEL ADDITION RULES:
             - Commands like "We got a new airman", "Add new person", "New member" → is_add_personnel_command: true
@@ -320,7 +232,6 @@ class VeraAgent:
             - "Johnson on leave" → is_appointment_command: true, personnel_name: "Johnson", appointment_type: "leave", needs_clarification: true, clarification_question: "What are the start and end dates for Johnson's leave?"
             - "simon is on leave until friday" → is_appointment_command: true, personnel_name: "simon", appointment_type: "leave", appointment_date: [today's date], end_date: [next friday's date], needs_clarification: false
             - "smith will be on leave starting tomorrow and will return 1 aug" → is_appointment_command: true, personnel_name: "smith", appointment_type: "leave", appointment_date: "2025-08-01"
-            - "patel will be tdy for the 10 - 26 aug" → is_appointment_command: true, personnel_name: "patel", appointment_type: "tdy", appointment_date: "2025-08-10", end_date: "2025-08-26"
             - "We got a new airman who will be in the Terminal the name is Dufus and the Rank is A1C add them to our roster" → is_add_personnel_command: true, personnel_name: "Dufus", personnel_rank: "A1C", new_status: "terminal"
             - "smith is moving to the admin room and ali is moving to the front desk" → is_multi_personnel: true, personnel_updates: [{{"personnel_name": "smith", "new_status": "admin_room"}}, {{"personnel_name": "ali", "new_status": "front_desk"}}]
             
@@ -332,15 +243,13 @@ class VeraAgent:
             Extract information if this is a command:
             1. Is this a status update command?
             2. Is this an appointment scheduling command?
-            3. Is this a delete/remove command?
-            4. Is this an add new personnel command?
-            5. Is this a general event/announcement command?
-            6. Does this command affect multiple personnel?
-            7. Personnel details (name, rank, status for each person)
-            8. Appointment details (date, time, type, duration)
-            9. Delete details (personnel name, what to delete: leave/appointments/all)
-            10. General event details (title, date, time, location, description)
-            11. Any additional context or notes
+            3. Is this an add new personnel command?
+            4. Is this a general event/announcement command?
+            5. Does this command affect multiple personnel?
+            6. Personnel details (name, rank, status for each person)
+            7. Appointment details (date, time, type, duration)
+            8. General event details (title, date, time, location, description)
+            9. Any additional context or notes
             
             GENERAL EVENT DETECTION:
             Look for section-wide announcements, meetings, PT sessions, or other events that apply to everyone:
@@ -391,7 +300,6 @@ class VeraAgent:
             {{
                 "is_status_command": boolean,
                 "is_appointment_command": boolean,
-                "is_delete_command": boolean,
                 "is_add_personnel_command": boolean,
                 "is_general_event": boolean,
                 "is_multi_personnel": boolean,
@@ -402,9 +310,7 @@ class VeraAgent:
                         "new_status": "string or null"
                     }}
                 ],
-                "personnel_name": "string or null (for delete commands)",
-                "delete_type": "leave/appointments/all or null",
-                "appointment_type": "medical/dental/personal_business/leave/tdy/other or null",
+                "appointment_type": "medical/dental/personal_business/leave/other or null",
                 "appointment_date": "YYYY-MM-DD or null",
                 "end_date": "YYYY-MM-DD or null (for multi-day leave)",
                 "start_time": "HHMM or null",
@@ -474,10 +380,6 @@ class VeraAgent:
                 if parsed_command.get('is_general_event', False):
                     return self._execute_general_event_command(parsed_command)
                 
-                # Handle delete commands
-                if parsed_command.get('is_delete_command', False):
-                    return self._execute_delete_command(parsed_command)
-                
                 # Handle add personnel commands
                 if parsed_command.get('is_add_personnel_command', False):
                     return self._execute_add_personnel_command_simple(parsed_command)
@@ -531,117 +433,127 @@ class VeraAgent:
             return "I couldn't process that status update."
     
     def _execute_appointment_command_simple(self, parsed_command):
-        """Execute appointment commands using enhanced appointment manager"""
+        """Execute appointment commands"""
         personnel_name = parsed_command.get('personnel_name')
         appointment_type = parsed_command.get('appointment_type', 'other')
         appointment_date = parsed_command.get('appointment_date')
-        end_date = parsed_command.get('end_date')
+        end_date = parsed_command.get('end_date')  # Handle date ranges
         start_time = parsed_command.get('start_time')
         end_time = parsed_command.get('end_time')
+        all_day = parsed_command.get('all_day', False)
         notes = parsed_command.get('notes')
         
         if not personnel_name:
             return "I need to know who the appointment is for."
         
-        if not appointment_date:
-            return "I need to know what date the appointment is for."
-        
-        # Use the enhanced appointment manager
-        result = self.appointment_manager.create_personnel_appointment(
-            personnel_name=personnel_name,
-            appointment_type=appointment_type,
-            start_date=appointment_date,
-            end_date=end_date,
-            start_time=start_time,
-            end_time=end_time,
-            notes=notes,
-            force_replace=False  # Always check for conflicts first
-        )
-        
-        if result['success']:
-            # Enhanced confirmation message
-            confirmation = f"✅ {result['message']}"
-            if end_date and end_date != appointment_date:
-                confirmation += f" (Multi-day: {appointment_date} to {end_date})"
-            return confirmation
-        elif result.get('error') == 'appointment_conflict':
-            conflicts = result.get('conflicts', [])
-            conflict_info = []
-            for conflict in conflicts[:3]:  # Show first 3 conflicts
-                conflict_date = conflict.get('appointment_date')
-                conflict_type = conflict.get('absence_type', 'appointment')
-                conflict_info.append(f"{conflict_type} on {conflict_date}")
+        # For leave appointments, also update their status
+        if appointment_type == 'leave':
+            # Update status to leave
+            status_result = self.update_personnel_status(personnel_name, 'leave')
             
-            conflict_list = ", ".join(conflict_info)
-            return (f"Cannot schedule {appointment_type} for {personnel_name} - conflicts with existing appointments: {conflict_list}. "
-                   f"Would you like me to replace the conflicting appointments?")
+            if appointment_date:
+                # Handle date ranges for leave appointments
+                appointments_created = []
+                
+                if end_date and appointment_date != end_date:
+                    # Create appointments for each day in the range
+                    from datetime import datetime, timedelta
+                    
+                    try:
+                        start_date = datetime.strptime(appointment_date, '%Y-%m-%d')
+                        final_date = datetime.strptime(end_date, '%Y-%m-%d')
+                        
+                        current_date = start_date
+                        while current_date <= final_date:
+                            date_str = current_date.strftime('%Y-%m-%d')
+                            result = self.add_appointment(
+                                personnel_name=personnel_name,
+                                appointment_type=appointment_type,
+                                appointment_date=date_str,
+                                start_time=start_time,
+                                end_time=end_time,
+                                all_day=all_day,
+                                notes=f"Leave period from {appointment_date} to {end_date}" if notes is None else notes
+                            )
+                            if result['success']:
+                                appointments_created.append(date_str)
+                            current_date += timedelta(days=1)
+                        
+                        if status_result['success']:
+                            person_name = status_result['person_updated']
+                            if appointments_created:
+                                date_range = f"{appointment_date} to {end_date}" if len(appointments_created) > 1 else appointment_date
+                                return f"Updated {person_name} to leave status and created leave appointments for {date_range} ({len(appointments_created)} days)."
+                            else:
+                                return f"Updated {person_name} to leave status but failed to create appointments."
+                    except ValueError as e:
+                        print(f"Error parsing dates: {e}")
+                        # Fall back to single appointment
+                        result = self.add_appointment(
+                            personnel_name=personnel_name,
+                            appointment_type=appointment_type,
+                            appointment_date=appointment_date,
+                            start_time=start_time,
+                            end_time=end_time,
+                            all_day=all_day,
+                            notes=notes
+                        )
+                else:
+                    # Single day appointment
+                    result = self.add_appointment(
+                        personnel_name=personnel_name,
+                        appointment_type=appointment_type,
+                        appointment_date=appointment_date,
+                        start_time=start_time,
+                        end_time=end_time,
+                        all_day=all_day,
+                        notes=notes
+                    )
+                    
+                    if status_result['success']:
+                        person_name = status_result['person_updated']
+                        if result['success']:
+                            return f"Updated {person_name} to leave status and added leave appointment."
+                        else:
+                            return f"Updated {person_name} to leave status."
+                else:
+                    available = status_result.get('available_personnel', [])
+                    if available:
+                        return f"I couldn't find '{personnel_name}' in our roster. Did you mean one of these: {', '.join(available[:3])}?"
+                    else:
+                        return f"I couldn't find '{personnel_name}' in our roster."
+            else:
+                # No date provided, just update status
+                if status_result['success']:
+                    return f"Updated {status_result['person_updated']} to leave status."
+                else:
+                    available = status_result.get('available_personnel', [])
+                    if available:
+                        return f"I couldn't find '{personnel_name}' in our roster. Did you mean one of these: {', '.join(available[:3])}?"
+                    else:
+                        return f"I couldn't find '{personnel_name}' in our roster."
         else:
-            error_msg = result.get('error', 'Unknown error')
-            if 'not found' in error_msg.lower():
-                available = result.get('available_personnel', [])
-                if available:
-                    return f"I couldn't find '{personnel_name}' in our roster. Did you mean one of these: {', '.join(available[:3])}?"
-            return f"Couldn't create appointment: {error_msg}"
-    
-    def _execute_general_event_command(self, parsed_command):
-        """Execute general event commands for section-wide events"""
-        event_title = parsed_command.get('event_title')
-        event_type = parsed_command.get('event_type', 'general')
-        appointment_date = parsed_command.get('appointment_date')  # Events use same date field
-        start_time = parsed_command.get('start_time')
-        end_time = parsed_command.get('end_time')
-        event_location = parsed_command.get('event_location')
-        event_description = parsed_command.get('event_description')
-        
-        if not event_title:
-            return "I need to know what the event is called."
-        
-        if not appointment_date:
-            return "I need to know what date the event is scheduled for."
-        
-        # Create general event
-        result = self.appointment_manager.create_general_event(
-            title=event_title,
-            date=appointment_date,
-            start_time=start_time,
-            end_time=end_time,
-            location=event_location,
-            description=event_description,
-            event_type=event_type
-        )
-        
-        if result['success']:
-            return result['message']
-        else:
-            return f"Couldn't create event: {result.get('error', 'Unknown error')}"
-    
-    def _execute_delete_command(self, parsed_command):
-        """Execute delete/remove commands for appointments"""
-        personnel_name = parsed_command.get('personnel_name')
-        delete_type = parsed_command.get('delete_type', 'appointments')
-        
-        if not personnel_name:
-            return "I need to know whose appointments you want to delete."
-        
-        # Map delete types
-        appointment_type = None
-        if delete_type == 'leave':
-            appointment_type = 'leave'
-        elif delete_type == 'appointments':
-            appointment_type = None  # All appointments
-        elif delete_type == 'all':
-            appointment_type = None  # All appointments
-        
-        # Use existing delete function
-        result = self.delete_personnel_appointments(personnel_name, appointment_type)
-        
-        if result['success']:
-            return f"✅ {result['message']}"
-        else:
-            return f"❌ {result['error']}"
+            # Regular appointment
+            if not appointment_date:
+                return "I need to know what date the appointment is for."
+            
+            result = self.add_appointment(
+                personnel_name=personnel_name,
+                appointment_type=appointment_type,
+                appointment_date=appointment_date,
+                start_time=start_time,
+                end_time=end_time,
+                all_day=all_day,
+                notes=notes
+            )
+            
+            if result['success']:
+                return result['message']
+            else:
+                return f"Couldn't create appointment: {result.get('error', 'Unknown error')}"
     
     def _execute_add_personnel_command_simple(self, parsed_command):
-        """Execute add personnel commands using database"""
+        """Execute add personnel commands"""
         personnel_name = parsed_command.get('personnel_name')
         personnel_rank = parsed_command.get('personnel_rank')
         new_status = parsed_command.get('new_status', 'front_desk')
@@ -652,52 +564,42 @@ class VeraAgent:
         if not personnel_rank:
             return "I need the person's rank to add them to the roster."
         
-        # Check if person already exists using database
-        full_name = f"{personnel_rank} {personnel_name}"
-        existing_person = self.db.find_personnel(full_name)
-        if existing_person:
-            return f"{personnel_rank} {personnel_name} is already in our roster."
+        # Check if person already exists
+        for person in self.personnel_assignments:
+            if person.get('name', '').lower() == f"{personnel_rank} {personnel_name}".lower():
+                return f"{personnel_rank} {personnel_name} is already in our roster."
         
-        try:
-            # Generate new ID
-            all_personnel = self.db.get_all_personnel()
-            existing_ids = [p.get('id', '') for p in all_personnel]
-            id_numbers = []
-            for existing_id in existing_ids:
-                if existing_id.startswith('pers_'):
-                    try:
-                        id_numbers.append(int(existing_id.split('_')[1]))
-                    except (IndexError, ValueError):
-                        continue
-            
-            next_id_number = max(id_numbers) + 1 if id_numbers else 1
-            new_id = f"pers_{next_id_number:03d}"
-            
-            # Add to database using raw SQL (DatabaseManager doesn't have add_personnel method)
-            with self.db.transaction() as conn:
-                conn.execute("""
-                    INSERT INTO personnel 
-                    (id, name, rank, type, position, status, phone, email, last_updated)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    new_id,
-                    full_name,
-                    personnel_rank,
-                    'military',
-                    'Airman',
-                    new_status,
-                    f"(555) 123-{4500 + next_id_number}",
-                    f"{personnel_name.lower()}.{personnel_rank.lower()}@us.af.mil",
-                    datetime.now().isoformat()
-                ))
-            
-            # Refresh personnel data
-            self.personnel_assignments = self.db.get_all_personnel()
-            
-            return f"Successfully added {personnel_rank} {personnel_name} to the roster with status {new_status}."
-            
-        except Exception as e:
-            return f"Error adding personnel: {str(e)}"
+        # Generate new ID
+        existing_ids = [p.get('id', '') for p in self.personnel_assignments]
+        id_numbers = []
+        for existing_id in existing_ids:
+            if existing_id.startswith('pers_'):
+                try:
+                    id_numbers.append(int(existing_id.split('_')[1]))
+                except (IndexError, ValueError):
+                    continue
+        
+        next_id_number = max(id_numbers) + 1 if id_numbers else 1
+        new_id = f"pers_{next_id_number:03d}"
+        
+        # Create new personnel entry
+        new_person = {
+            'id': new_id,
+            'name': f"{personnel_rank} {personnel_name}",
+            'rank': personnel_rank,
+            'type': 'military',
+            'position': 'Airman',
+            'status': new_status,
+            'phone': f"(555) 123-{4500 + next_id_number}",
+            'email': f"{personnel_name.lower()}.{personnel_rank.lower()}@us.af.mil",
+            'last_updated': datetime.now().isoformat()
+        }
+        
+        # Add to personnel list
+        self.personnel_assignments.append(new_person)
+        self._save_json_file(self.personnel_assignments_file, self.personnel_assignments)
+        
+        return f"Successfully added {personnel_rank} {personnel_name} to the roster with status {new_status}."
     
     def chat(self, message, conversation_history=None):
         """Main chat function with full Claude intelligence and function calling"""

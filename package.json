@@ -1,0 +1,15 @@
+{
+  "name": "vera-full-stack",
+  "version": "1.0.0",
+  "description": "Vera AI Agent - Full Stack Application",
+  "scripts": {
+    "start": "concurrently \"python start_website.py\" \"cd frontend && npm run dev\"",
+    "start:backend": "python start_website.py",
+    "start:frontend": "cd frontend && npm run dev",
+    "install:frontend": "cd frontend && npm install",
+    "setup": "npm run install:frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  }
+}

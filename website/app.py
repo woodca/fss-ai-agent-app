@@ -13,6 +13,8 @@ os.chdir(parent_dir)
 
 from gpt_parser import GPTParser
 from vera_agent import VeraAgent
+from database_manager import DatabaseManager
+from appointment_manager import AppointmentManager
 from flask import request
 import json
 from datetime import datetime
@@ -47,6 +49,10 @@ def save_conversation_contexts():
 # Load existing conversation contexts on startup
 load_conversation_contexts()
 
+# Initialize database and appointment manager for API endpoints
+db = DatabaseManager()
+appointment_manager = AppointmentManager()
+
 @app.route('/')
 def home():
     """Home page with Apple-style design"""
@@ -54,21 +60,16 @@ def home():
 
 @app.route('/api/appointments')
 def api_appointments():
-    """API endpoint to get all appointments"""
+    """API endpoint to get all appointments from database"""
     try:
-        print(f"Current working directory: {os.getcwd()}")
-        print(f"Looking for appointments.json at: {os.path.abspath('appointments.json')}")
-        print(f"File exists: {os.path.exists('appointments.json')}")
+        print(f"Getting appointments from database...")
         
-        parser = GPTParser()
-        appointments = parser.get_pending_appointments()
-        
-        print(f"Raw appointments count: {len(parser.appointments)}")
-        print(f"Pending appointments count: {len(appointments)}")
+        # Get calendar events from database
+        events_data = db.get_calendar_events()
         
         # Format appointments for the frontend
         formatted_appointments = []
-        for apt in appointments:
+        for apt in events_data['personnel_appointments']:
             formatted_appointments.append({
                 'id': apt.get('id'),
                 'personnel_name': apt.get('personnel_name', 'Unknown'),
@@ -79,18 +80,39 @@ def api_appointments():
                 'end_time': apt.get('end_time'),
                 'duration_hours': apt.get('duration_hours'),
                 'all_day': apt.get('all_day', False),
-                'original_text': apt.get('original_text'),
-                'created_timestamp': apt.get('created_timestamp')
+                'notes': apt.get('notes'),
+                'created_timestamp': apt.get('created_timestamp'),
+                'category_color': apt.get('category_color', '#FFC107')
             })
+        
+        # Also include general events
+        formatted_events = []
+        for event in events_data['general_events']:
+            formatted_events.append({
+                'id': event.get('id'),
+                'title': event.get('title'),
+                'event_type': event.get('event_type'),
+                'event_date': event.get('event_date'),
+                'start_time': event.get('start_time'),
+                'end_time': event.get('end_time'),
+                'location': event.get('location'),
+                'description': event.get('description'),
+                'all_day': event.get('all_day', False),
+                'category_color': event.get('category_color', '#007BFF')
+            })
+        
+        print(f"Database appointments count: {len(formatted_appointments)}")
+        print(f"Database general events count: {len(formatted_events)}")
         
         return jsonify({
             'success': True,
             'appointments': formatted_appointments,
-            'total_count': len(formatted_appointments),
+            'general_events': formatted_events,
+            'total_appointments': len(formatted_appointments),
+            'total_events': len(formatted_events),
             'debug_info': {
-                'cwd': os.getcwd(),
-                'raw_count': len(parser.appointments),
-                'pending_count': len(appointments)
+                'source': 'database',
+                'date_range': events_data['date_range']
             }
         })
     
@@ -103,17 +125,34 @@ def api_appointments():
 
 @app.route('/api/manning')
 def api_manning():
-    """API endpoint to get manning status"""
+    """API endpoint to get manning status from database"""
     try:
-        parser = GPTParser()
-        manning = parser.get_manning_status(13)  # Assuming 13 total personnel
+        print("Getting manning status from database...")
+        
+        # Get personnel status summary from database
+        summary = db.get_personnel_status_summary()
+        
+        # Create manning status similar to GPTParser format
+        manning = {
+            'total_personnel': summary.get('total_personnel', 0),
+            'working': summary.get('working_count', 0),
+            'out_of_office': summary.get('out_of_office_count', 0),
+            'status_breakdown': summary.get('status_counts', {}),
+            'availability_percentage': round((summary.get('working_count', 0) / max(summary.get('total_personnel', 1), 1)) * 100, 1)
+        }
+        
+        print(f"Database manning status: {manning}")
         
         return jsonify({
             'success': True,
-            'manning': manning
+            'manning': manning,
+            'debug_info': {
+                'source': 'database'
+            }
         })
     
     except Exception as e:
+        print(f"Error getting manning status from database: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -121,10 +160,13 @@ def api_manning():
 
 @app.route('/api/personnel-status')
 def api_personnel_status():
-    """API endpoint to get personnel status and assignments"""
+    """API endpoint to get personnel status and assignments from database"""
     try:
-        parser = GPTParser()
-        personnel_assignments = parser.get_personnel_assignments()
+        print("Getting personnel status from database...")
+        
+        # Get personnel status summary from database
+        summary = db.get_personnel_status_summary()
+        personnel_list = db.get_all_personnel()
         
         # Group personnel by status/assignment
         assignments = {
@@ -134,44 +176,55 @@ def api_personnel_status():
             'float': {'personnel': []}
         }
         
-        # Count working vs out of office
-        working_count = 0
-        out_of_office_count = 0
-        
-        for person in personnel_assignments:
+        for person in personnel_list:
             status = person.get('status', 'unknown')
             
             # Map status to assignment categories
             if status in ['front_desk', 'working']:
                 assignments['floor']['personnel'].append(person)
-                working_count += 1
             elif status == 'admin_room':
                 assignments['admin_room']['personnel'].append(person)
-                working_count += 1
             elif status == 'terminal':
                 assignments['terminal']['personnel'].append(person)
-                working_count += 1
             elif status == 'float':
                 assignments['float']['personnel'].append(person)
-                working_count += 1
-            else:
-                # leave, appointment, etc.
-                out_of_office_count += 1
+            # For leave/appointment, they won't be in assignments but will be in out_of_office
+        
+        # Get unavailable personnel details
+        unavailable_personnel = summary.get('unavailable_personnel', [])
+        
+        # Calculate military vs civilian counts
+        military_count = sum(1 for p in personnel_list if p.get('type') == 'military')
+        civilian_count = sum(1 for p in personnel_list if p.get('type') == 'civilian')
+        
+        # Add count field to assignments
+        for assignment_key in assignments:
+            assignments[assignment_key]['count'] = len(assignments[assignment_key]['personnel'])
         
         stats = {
-            'working_count': working_count,
-            'out_of_office_count': out_of_office_count,
-            'total_count': len(personnel_assignments)
+            'total_personnel': summary.get('total_personnel', 0),
+            'military_count': military_count,
+            'civilian_count': civilian_count,
+            'working_count': summary.get('working_count', 0),
+            'out_of_office_count': summary.get('out_of_office_count', 0)
         }
+        
+        print(f"Database personnel stats: {stats}")
+        print(f"Unavailable personnel count: {len(unavailable_personnel)}")
         
         return jsonify({
             'success': True,
             'stats': stats,
-            'assignments': assignments
+            'assignments': assignments,
+            'unavailable_personnel': unavailable_personnel,
+            'debug_info': {
+                'source': 'database',
+                'status_counts': summary.get('status_counts', {})
+            }
         })
         
     except Exception as e:
-        print(f"Error getting personnel status: {e}")
+        print(f"Error getting personnel status from database: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -179,17 +232,42 @@ def api_personnel_status():
 
 @app.route('/api/contacts')
 def api_contacts():
-    """API endpoint to get contact information"""
+    """API endpoint to get contact information from database"""
     try:
-        parser = GPTParser()
+        print("Getting contacts from database...")
+        
+        # Get all personnel from database (which includes contact info)
+        personnel = db.get_all_personnel()
+        
+        # Format as contacts with phone/email information
+        contacts = []
+        for person in personnel:
+            if person.get('phone') or person.get('email'):
+                contacts.append({
+                    'id': person.get('id'),
+                    'name': person.get('name'),
+                    'full_name': person.get('full_name'),
+                    'rank': person.get('rank'),
+                    'position': person.get('position'),
+                    'phone': person.get('phone'),
+                    'email': person.get('email'),
+                    'type': person.get('type'),
+                    'status': person.get('status')
+                })
+        
+        print(f"Database contacts count: {len(contacts)}")
         
         return jsonify({
             'success': True,
-            'contacts': parser.contacts,
-            'total_count': len(parser.contacts)
+            'contacts': contacts,
+            'total_count': len(contacts),
+            'debug_info': {
+                'source': 'database'
+            }
         })
     
     except Exception as e:
+        print(f"Error getting contacts from database: {e}")
         return jsonify({
             'success': False,
             'error': str(e)

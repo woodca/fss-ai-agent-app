@@ -1,0 +1,103 @@
+.assignment-card {
+  background: var(--background-tertiary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  border: 2px solid var(--border-color);
+  transition: all 0.3s ease;
+  min-height: 250px;
+  display: flex;
+  flex-direction: column;
+}
+
+.assignment-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--card-shadow);
+}
+
+/* Variant colors */
+.assignment-card.floor {
+  border-color: rgba(0, 122, 255, 0.3);
+  background: rgba(0, 122, 255, 0.02);
+}
+
+.assignment-card.admin {
+  border-color: rgba(90, 200, 250, 0.3);
+  background: rgba(90, 200, 250, 0.02);
+}
+
+.assignment-card.terminal {
+  border-color: rgba(52, 199, 89, 0.3);
+  background: rgba(52, 199, 89, 0.02);
+}
+
+.assignment-card.float {
+  border-color: rgba(255, 149, 0, 0.3);
+  background: rgba(255, 149, 0, 0.02);
+}
+
+.assignment-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+  font-size: 16px;
+}
+
+.assignment-header svg {
+  width: 20px;
+  height: 20px;
+  opacity: 0.8;
+}
+
+.assignment-count {
+  font-size: 48px;
+  font-weight: var(--font-weight-bold);
+  color: var(--primary-blue);
+  margin-bottom: var(--spacing-md);
+  text-align: center;
+}
+
+.assignment-personnel {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 200px;
+  padding-right: 4px;
+}
+
+.assignment-personnel::-webkit-scrollbar {
+  width: 4px;
+}
+
+.assignment-personnel::-webkit-scrollbar-track {
+  background: var(--background-secondary);
+  border-radius: 2px;
+}
+
+.assignment-personnel::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 2px;
+}
+
+.assignment-personnel::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+.no-personnel {
+  text-align: center;
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: var(--spacing-md);
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .assignment-card {
+    min-height: 200px;
+  }
+  
+  .assignment-count {
+    font-size: 36px;
+  }
+}

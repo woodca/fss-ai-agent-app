@@ -1,4 +1,13 @@
-[
+#!/usr/bin/env python3
+"""
+Populate the database with personnel data
+"""
+
+import json
+from database_manager import DatabaseManager
+
+# Personnel data from the user
+personnel_data = [
   {
     "id": "pers_001",
     "name": "MSgt Kyles",
@@ -11,7 +20,7 @@
     "phone": "+14128186609",
     "email": "kyles.s@us.af.mil",
     "status": "float",
-    "appointment_type": null,
+    "appointment_type": None,
     "last_updated": "2025-07-27T19:19:21.236739"
   },
   {
@@ -26,7 +35,7 @@
     "phone": "+18133685013",
     "email": "tarpley.t@us.af.mil",
     "status": "float",
-    "appointment_type": null,
+    "appointment_type": None,
     "last_updated": "2025-07-27T19:23:05.897532"
   },
   {
@@ -41,7 +50,7 @@
     "phone": "+14408293193",
     "email": "woodley.c@us.af.mil",
     "status": "float",
-    "appointment_type": null,
+    "appointment_type": None,
     "last_updated": "2025-07-27T19:21:12.484128"
   },
   {
@@ -56,7 +65,7 @@
     "phone": "+12055144638",
     "email": "simon.s@us.af.mil",
     "status": "leave",
-    "appointment_type": null,
+    "appointment_type": None,
     "last_updated": "2025-07-27T22:45:41.474759"
   },
   {
@@ -71,7 +80,7 @@
     "phone": "+17194936971",
     "email": "taylor.z@us.af.mil",
     "status": "front_desk",
-    "appointment_type": null,
+    "appointment_type": None,
     "last_updated": "2025-07-27T19:22:46.062283"
   },
   {
@@ -86,7 +95,7 @@
     "phone": "+17858195795",
     "email": "rodriguez.g@us.af.mil",
     "status": "terminal",
-    "appointment_type": null,
+    "appointment_type": None,
     "last_updated": "2025-07-27T00:00:00"
   },
   {
@@ -101,7 +110,7 @@
     "phone": "+18634506605",
     "email": "patel.a@us.af.mil",
     "status": "terminal",
-    "appointment_type": null,
+    "appointment_type": None,
     "last_updated": "2025-07-27T22:45:06.381056"
   },
   {
@@ -116,7 +125,7 @@
     "phone": "+18038690528",
     "email": "gauci.a@us.af.mil",
     "status": "terminal",
-    "appointment_type": null,
+    "appointment_type": None,
     "last_updated": "2025-07-27T19:29:30.937519"
   },
   {
@@ -131,7 +140,7 @@
     "phone": "+15722208888",
     "email": "justice.j@us.af.mil",
     "status": "terminal",
-    "appointment_type": null,
+    "appointment_type": None,
     "last_updated": "2025-07-27T19:24:09.900875"
   },
   {
@@ -146,7 +155,7 @@
     "phone": "+15059087432",
     "email": "pham.q@us.af.mil",
     "status": "terminal",
-    "appointment_type": null,
+    "appointment_type": None,
     "last_updated": "2025-07-27T00:00:00"
   },
   {
@@ -161,7 +170,7 @@
     "phone": "+17147560547",
     "email": "martino.k@us.af.mil",
     "status": "terminal",
-    "appointment_type": null,
+    "appointment_type": None,
     "last_updated": "2025-07-27T19:23:32.800032"
   },
   {
@@ -176,7 +185,7 @@
     "phone": "+12175608210",
     "email": "resma.a@us.af.mil",
     "status": "terminal",
-    "appointment_type": null,
+    "appointment_type": None,
     "last_updated": "2025-07-27T19:23:32.800047"
   },
   {
@@ -191,7 +200,7 @@
     "phone": "+15057024150",
     "email": "dora.civilian@us.af.mil",
     "status": "admin_room",
-    "appointment_type": null,
+    "appointment_type": None,
     "last_updated": "2025-07-27T22:41:34.184438"
   },
   {
@@ -206,7 +215,43 @@
     "phone": "+15054353544",
     "email": "rozanna.civilian@us.af.mil",
     "status": "admin_room",
-    "appointment_type": null,
+    "appointment_type": None,
     "last_updated": "2025-07-27T19:29:30.937507"
   }
 ]
+
+def populate_database():
+    """Populate database with personnel data"""
+    print("Initializing DatabaseManager...")
+    db = DatabaseManager()
+    
+    print("Populating personnel data...")
+    with db.transaction() as conn:
+        for person in personnel_data:
+            conn.execute("""
+                INSERT OR REPLACE INTO personnel 
+                (id, name, full_name, first_name, last_name, rank, type, position, 
+                 phone, email, status, previous_status, appointment_type, last_updated)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                person.get('id'), person.get('name'), person.get('full_name'),
+                person.get('first_name'), person.get('last_name'), person.get('rank'),
+                person.get('type'), person.get('position'), person.get('phone'),
+                person.get('email'), person.get('status'), person.get('previous_status'),
+                person.get('appointment_type'), person.get('last_updated')
+            ))
+    
+    print(f"Successfully populated {len(personnel_data)} personnel records")
+    
+    # Test the data
+    print("\nTesting data retrieval...")
+    summary = db.get_personnel_status_summary()
+    print(f"Total personnel: {summary['total_personnel']}")
+    print(f"Status counts: {summary['status_counts']}")
+    print(f"Working count: {summary['working_count']}")
+    print(f"Out of office count: {summary['out_of_office_count']}")
+    
+    return summary
+
+if __name__ == "__main__":
+    populate_database()
