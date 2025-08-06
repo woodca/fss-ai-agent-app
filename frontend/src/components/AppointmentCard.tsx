@@ -6,19 +6,19 @@ interface AppointmentCardProps {
   compact?: boolean;
 }
 
-interface GeneralEvent {
-  id: string;
-  title: string;
-  event_type: string;
-  appointment_date: string;
-  start_time?: string;
-  end_time?: string;
-  location?: string;
-  description?: string;
-  all_day: boolean;
-  category_color: string;
-  created_timestamp: string;
-}
+// interface GeneralEvent {
+//   id: string;
+//   title: string;
+//   event_type: string;
+//   appointment_date: string;
+//   start_time?: string;
+//   end_time?: string;
+//   location?: string;
+//   description?: string;
+//   all_day: boolean;
+//   category_color: string;
+//   created_timestamp: string;
+// }
 
 const AppointmentCard = ({ appointment, compact = false }: AppointmentCardProps) => {
   const formatTime = (timeStr: string | undefined, allDay: boolean) => {
@@ -142,7 +142,7 @@ const AppointmentCard = ({ appointment, compact = false }: AppointmentCardProps)
       
       <div className="appointment-footer">
         <div className="appointment-created">
-          Created: {new Date(appointment.created_timestamp).toLocaleDateString()}
+          Created: {appointment.created_timestamp ? new Date(appointment.created_timestamp).toLocaleDateString() : 'N/A'}
         </div>
         {appointment.category_color && (
           <div 
