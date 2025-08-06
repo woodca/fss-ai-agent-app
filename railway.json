@@ -1,7 +1,7 @@
 {
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "pip install -r requirements.txt"
+    "buildCommand": "pip install -r requirements.txt && cd frontend && npm install && npm run build && mkdir -p ../static && cp -r dist/* ../static/"
   },
   "deploy": {
     "startCommand": "python -m gunicorn start_website:app --bind 0.0.0.0:$PORT",

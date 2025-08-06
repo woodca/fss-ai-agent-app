@@ -18,15 +18,28 @@ from twilio_handler import TwilioHandler
 
 app = Flask(__name__, 
             template_folder='website/templates',
-            static_folder='website/static')
+            static_folder='static')
 
 # Initialize database manager
 db = DatabaseManager()
 
 @app.route('/')
 def home():
-    """Home page with Apple-style design"""
-    return render_template('index.html')
+    """Serve React app"""
+    return app.send_static_file('index.html')
+
+@app.route('/<path:path>')
+def serve_react_app(path):
+    """Serve React app for any non-API routes"""
+    if path.startswith('api/'):
+        # Let API routes handle themselves
+        return None
+    try:
+        # Try to serve the specific file
+        return app.send_static_file(path)
+    except:
+        # Fall back to React app for client-side routing
+        return app.send_static_file('index.html')
 
 @app.route('/section-leads')
 def section_leads():
