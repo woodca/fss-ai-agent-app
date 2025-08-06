@@ -380,22 +380,59 @@ def api_ai_agent_message():
 @app.route('/api/twilio/sms', methods=['POST'])
 def twilio_sms_webhook():
     """Webhook endpoint for incoming Twilio SMS messages"""
+    import traceback
+    
     try:
+        # Log incoming webhook data for debugging
+        print(f"🔄 Twilio webhook received: {request.method} {request.url}")
+        print(f"📱 Form data: {dict(request.form)}")
+        
+        # Validate required Twilio parameters
+        from_number = request.form.get('From', '')
+        body = request.form.get('Body', '')
+        message_sid = request.form.get('MessageSid', '')
+        
+        if not all([from_number, body, message_sid]):
+            print("❌ Missing required Twilio parameters")
+            print(f"   From: {from_number}, Body: {body}, MessageSid: {message_sid}")
+        else:
+            print(f"✅ Valid webhook: From {from_number}, Body: '{body[:50]}...', SID: {message_sid}")
+        
         # Initialize Twilio handler
+        print("🔧 Initializing TwilioHandler...")
         twilio = TwilioHandler()
         
+        if not twilio.client:
+            print("❌ TwilioHandler client not initialized - check credentials!")
+            # Still process webhook but log the issue
+        else:
+            print("✅ TwilioHandler client ready")
+        
         # Process the webhook and get TwiML response
+        print("🔄 Processing webhook...")
         twiml_response = twilio.handle_webhook(request.form)
+        print(f"📤 TwiML Response generated: {len(twiml_response)} characters")
+        
+        # Log the response for debugging
+        if len(twiml_response) < 500:  # Only log short responses
+            print(f"📋 TwiML Content: {twiml_response}")
         
         # Return TwiML response with proper content type
         return twiml_response, 200, {'Content-Type': 'text/xml'}
         
     except Exception as e:
-        print(f"Error processing Twilio webhook: {e}")
+        print(f"❌ Error processing Twilio webhook: {e}")
+        print("📋 Full traceback:")
+        traceback.print_exc()
+        
         # Return empty TwiML response on error
         from twilio.twiml.messaging_response import MessagingResponse
         resp = MessagingResponse()
-        return str(resp), 200, {'Content-Type': 'text/xml'}
+        resp.message("Sorry, there was an error processing your message. Please try again or call the CS section.")
+        
+        error_response = str(resp)
+        print(f"🔧 Returning error TwiML: {error_response}")
+        return error_response, 200, {'Content-Type': 'text/xml'}
 
 
 if __name__ == '__main__':

@@ -23,7 +23,44 @@ class TwilioHandler:
         # Initialize Twilio client if credentials available
         self.client = None
         if self.account_sid and self.auth_token:
-            self.client = Client(self.account_sid, self.auth_token)
+            try:
+                # Check if we're using API Key format (starts with SK) or Account SID format (starts with AC)
+                if self.account_sid.startswith('SK'):
+                    # API Key authentication - need to get main account SID
+                    # For API Key auth, the account_sid env var is actually the API Key SID
+                    # We need to determine the main account SID programmatically
+                    print(f"Initializing Twilio client with API Key: {self.account_sid[:8]}...")
+                    self.client = Client(self.account_sid, self.auth_token)
+                    
+                    # Try to get the main account SID
+                    try:
+                        accounts = list(self.client.api.accounts.list(limit=1))
+                        if accounts:
+                            self.main_account_sid = accounts[0].sid
+                            print(f"Found main account SID: {self.main_account_sid[:8]}...")
+                        else:
+                            print("Warning: Could not determine main account SID")
+                            self.main_account_sid = None
+                    except Exception as e:
+                        print(f"Warning: Could not fetch main account SID: {e}")
+                        self.main_account_sid = None
+                        
+                elif self.account_sid.startswith('AC'):
+                    # Standard Account SID authentication
+                    print(f"Initializing Twilio client with Account SID: {self.account_sid[:8]}...")
+                    self.client = Client(self.account_sid, self.auth_token)
+                    self.main_account_sid = self.account_sid
+                else:
+                    print(f"Warning: Unknown credential format for: {self.account_sid[:8]}...")
+                    self.client = Client(self.account_sid, self.auth_token)
+                    self.main_account_sid = self.account_sid
+                    
+                print("✅ Twilio client initialized successfully")
+                
+            except Exception as e:
+                print(f"❌ Failed to initialize Twilio client: {e}")
+                self.client = None
+                self.main_account_sid = None
         
         # Initialize database manager
         self.db = DatabaseManager()
@@ -315,19 +352,34 @@ Examples:
     def send_sms(self, to_number: str, message: str) -> bool:
         """Send SMS via Twilio"""
         if not self.client:
-            print(f"Twilio client not initialized. Would send to {to_number}: {message}")
+            print(f"❌ Twilio client not initialized. Would send to {to_number}: {message}")
             return False
         
         try:
-            message = self.client.messages.create(
+            print(f"📤 Sending SMS to {to_number}: '{message[:50]}...'")
+            print(f"📱 Using phone number: {self.twilio_phone}")
+            
+            sms_message = self.client.messages.create(
                 body=message,
                 from_=self.twilio_phone,
                 to=to_number
             )
-            print(f"SMS sent successfully. SID: {message.sid}")
+            print(f"✅ SMS sent successfully. SID: {sms_message.sid}")
             return True
+            
         except Exception as e:
-            print(f"Error sending SMS: {e}")
+            import traceback
+            print(f"❌ Error sending SMS to {to_number}: {e}")
+            print(f"📋 Full error traceback:")
+            traceback.print_exc()
+            
+            # Log specific error details for debugging
+            print(f"🔍 Debug info:")
+            print(f"   Client initialized: {self.client is not None}")
+            print(f"   From phone: {self.twilio_phone}")
+            print(f"   To phone: {to_number}")
+            print(f"   Message length: {len(message)} chars")
+            
             return False
     
     def handle_webhook(self, request_form) -> str:

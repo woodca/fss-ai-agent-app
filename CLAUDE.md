@@ -19,11 +19,14 @@ This project includes specialized agents in `.claude/agents/` for different task
 - **code-reviewer** - Use immediately after writing or modifying code for quality, security, and maintainability review
 - **debugger** - Use proactively when encountering errors, test failures, or unexpected behavior  
 - **frontend-developer** - Use for React components, responsive layouts, and frontend performance optimization
+- **deployment-engineer** - Use for CI/CD pipelines, deployment issues, infrastructure configuration, and production readiness
+- **general-purpose** - Use for complex multi-step tasks requiring research and file operations
 
 ### When to Use Agents:
 - After significant code changes → `code-reviewer`
 - When tests fail or errors occur → `debugger`
 - For UI/frontend work → `frontend-developer`
+- For deployment/infrastructure issues → `deployment-engineer`
 - For complex multi-step tasks → `general-purpose`
 
 Example usage:
@@ -36,6 +39,9 @@ claude --agent debugger "Appointment creation is failing with status conflicts"
 
 # For frontend calendar improvements
 claude --agent frontend-developer "Optimize calendar page performance and add accessibility"
+
+# For deployment issues and CI/CD setup
+claude --agent deployment-engineer "Fix Railway deployment failures and set up proper CI/CD pipeline"
 ```
 
 ## Project Overview
